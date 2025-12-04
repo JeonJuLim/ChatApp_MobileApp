@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
-import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_page.dart';
 
+// 3 file cùng folder pages nên import tương đối cho chắc
+import 'chat_detail_page.dart';
+import 'settings_page.dart';
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
@@ -46,7 +48,7 @@ class _ChatListPageState extends State<ChatListPage> {
       hasUnread: false,
     ),
   ];
-//xoá fake
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -68,159 +70,10 @@ class _ChatListPageState extends State<ChatListPage> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 8),
+            // nội dung theo tab
+            Expanded(child: _buildTabBody()),
 
-            /// TOP BAR: avatar + nút +
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  // Avatar tròn mock
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.secondary,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.person_outline,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Nút thêm cuộc trò chuyện / thêm bạn
-                  InkWell(
-                    onTap: () {
-                      // TODO: mở màn tạo chat mới
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppColors.mint,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.mint.withOpacity(0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            /// SEARCH BAR
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Tìm kiếm...',
-                          hintStyle: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      height: 32,
-                      width: 32,
-                      margin: const EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.mint,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.search,
-                        size: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.only(right: 12),
-                      child: Icon(
-                        Icons.notifications_none,
-                        size: 20,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            /// LIST CHATS
-            Expanded(
-              child: ListView.builder(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                itemCount: _filteredConversations.length,
-                itemBuilder: (context, index) {
-                  final c = _filteredConversations[index];
-                  return _ConversationTile(
-                    conversation: c,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ChatDetailPage(
-                            title: c.name,
-                            isGroup: c.isGroup,
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-
-            /// BOTTOM NAV
+            // BOTTOM NAV
             Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -237,7 +90,6 @@ class _ChatListPageState extends State<ChatListPage> {
                 currentIndex: _currentTabIndex,
                 onTap: (value) {
                   setState(() => _currentTabIndex = value);
-                  // TODO: khi có màn khác thì navigate
                 },
                 type: BottomNavigationBarType.fixed,
                 selectedItemColor: AppColors.primary,
@@ -266,6 +118,181 @@ class _ChatListPageState extends State<ChatListPage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Chọn nội dung theo tab
+  Widget _buildTabBody() {
+    switch (_currentTabIndex) {
+      case 0:
+        return _buildChatTab();
+      case 3:
+        return const SettingsPage();
+      default:
+        return const Center(
+          child: Text(
+            'Đang phát triển...',
+            style: AppTextStyles.welcomeSubtitle,
+          ),
+        );
+    }
+  }
+
+  /// Tab 0: danh sách chat (UI bạn đã thiết kế)
+  Widget _buildChatTab() {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+
+        /// TOP BAR: avatar + nút +
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              // Avatar tròn mock
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.secondary,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const Spacer(),
+              // Nút thêm cuộc trò chuyện / thêm bạn
+              InkWell(
+                onTap: () {
+                  // TODO: mở màn tạo chat mới
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.mint,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.mint.withOpacity(0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        /// SEARCH BAR
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'Tìm kiếm...',
+                      hintStyle: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  height: 32,
+                  width: 32,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.mint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.search,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(
+                    Icons.notifications_none,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        /// LIST CHATS
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            itemCount: _filteredConversations.length,
+            itemBuilder: (context, index) {
+              final c = _filteredConversations[index];
+              return _ConversationTile(
+                conversation: c,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatDetailPage(
+                        title: c.name,
+                        isGroup: c.isGroup,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -335,8 +362,11 @@ class _ConversationTile extends StatelessWidget {
                 ),
                 child: Center(
                   child: conversation.isGroup
-                      ? const Icon(Icons.group,
-                      size: 22, color: Colors.white)
+                      ? const Icon(
+                    Icons.group,
+                    size: 22,
+                    color: Colors.white,
+                  )
                       : Text(
                     _initials,
                     style: const TextStyle(
