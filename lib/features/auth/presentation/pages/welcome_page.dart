@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/login_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/register/register_phone_page.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -12,7 +13,71 @@ class WelcomePage extends StatefulWidget {
 
 class _WelcomePageState extends State<WelcomePage> {
   bool agree = false;
-
+  void _showTermsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Điều khoản & Chính sách bảo mật'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    '1. Mục đích sử dụng\n',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    'Ứng dụng dùng để gọi điện, nhắn tin và chia sẻ nội dung '
+                        'giữa người dùng theo thời gian thực cho mục đích cá nhân, '
+                        'không sử dụng cho các hoạt động vi phạm pháp luật.\n\n',
+                  ),
+                  Text(
+                    '2. Quyền riêng tư\n',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    'Chúng tôi chỉ thu thập thông tin cần thiết (số điện thoại, '
+                        'tên hiển thị, ảnh đại diện...) để cung cấp dịch vụ. '
+                        'Thông tin tài khoản được bảo mật và không chia sẻ cho bên thứ ba '
+                        'khi chưa có sự đồng ý của bạn, trừ khi có yêu cầu từ cơ quan chức năng.\n\n',
+                  ),
+                  Text(
+                    '3. Hành vi bị cấm\n',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    'Không được sử dụng ứng dụng để spam, lừa đảo, phát tán nội dung '
+                        'bạo lực, khiêu dâm, thù hằn hoặc vi phạm pháp luật hiện hành.\n\n',
+                  ),
+                  Text(
+                    '4. Thay đổi điều khoản\n',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    'Điều khoản có thể được cập nhật theo từng thời điểm. '
+                        'Việc tiếp tục sử dụng ứng dụng sau khi điều khoản được cập nhật '
+                        'đồng nghĩa với việc bạn đã chấp nhận các nội dung thay đổi.',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Đóng'),
+            ),
+          ],
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -153,7 +218,11 @@ class _WelcomePageState extends State<WelcomePage> {
                     height: 52,
                     child: OutlinedButton(
                       onPressed: () {
-                        // TODO: điều hướng tới login phone trực tiếp
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:(_) => const RegisterPhonePage(),
+                          ),
+                        );
                       },
                       child: Text(
                         'Tiếp tục bằng số điện thoại',
@@ -165,6 +234,7 @@ class _WelcomePageState extends State<WelcomePage> {
                   const SizedBox(height: 24),
 
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Checkbox(
                         value: agree,
@@ -174,9 +244,14 @@ class _WelcomePageState extends State<WelcomePage> {
                         },
                       ),
                       Expanded(
-                        child: Text(
-                          'Tôi đồng ý với Điều khoản & Chính sách bảo mật',
-                          style: AppTextStyles.legalText,
+                        child: InkWell(
+                          onTap: _showTermsDialog, // mở popup khi bấm vào text
+                          child: Text(
+                            'Tôi đồng ý với Điều khoản & Chính sách bảo mật',
+                            style: AppTextStyles.legalText.copyWith(
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
                         ),
                       ),
                     ],
