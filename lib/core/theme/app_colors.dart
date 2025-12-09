@@ -12,7 +12,7 @@ class AppColors {
 
   /// Màu xanh tím nhạt
   static const primarySoft = Color(0xFFA2B9EE);
-
+  static const tertiary  = Color(0xFFA3DCEE);  // xanh dương nhạt
   /// Cyan pastel
   static const secondary = Color(0xFFA3DCEE);
 

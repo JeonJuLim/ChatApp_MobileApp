@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/welcome_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/appearance_settings_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -104,14 +106,20 @@ class SettingsPage extends StatelessWidget {
               // TODO: mở màn privacy
             },
           ),
+
           _SettingsTile(
             icon: Icons.palette_outlined,
             title: 'Giao diện',
             subtitle: 'Chủ đề, màu sắc, font chữ',
             onTap: () {
-              // TODO: mở màn theme
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AppearanceSettingsPage(),
+                ),
+              );
             },
           ),
+
           _SettingsTile(
             icon: Icons.notifications_outlined,
             title: 'Thông báo',

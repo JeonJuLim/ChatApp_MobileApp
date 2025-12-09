@@ -3,7 +3,7 @@ import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
-
+import 'package:minichatappmobile/features/auth/presentation/pages/login_password_page.dart';
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -302,9 +302,30 @@ class _CountryCode {
 }
 
 // ===================== OTP PAGE ĐƠN GIẢN (MẪU) =====================
-
-class OtpPage extends StatelessWidget {
+class OtpPage extends StatefulWidget {
   const OtpPage({super.key});
+
+  @override
+  State<OtpPage> createState() => _OtpPageState();
+}
+
+class _OtpPageState extends State<OtpPage> {
+  // 4 ô nhập OTP
+  final List<TextEditingController> _otpControllers =
+  List.generate(4, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes =
+  List.generate(4, (_) => FocusNode());
+
+  @override
+  void dispose() {
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
+    super.dispose();
+  }
 
   // Khi OTP hợp lệ -> coi như đăng nhập thành công
   Future<void> _onOtpSuccess(BuildContext context) async {
@@ -316,86 +337,144 @@ class OtpPage extends StatelessWidget {
     await prefs.setString('accessToken', fakeAccessToken);
 
     // Đi tới ChatListPage và xoá hết stack trước đó (không quay lại login nữa)
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const ChatListPage()),
           (route) => false,
     );
   }
-    @override
-    Widget build(BuildContext context) {
-      final controllers =
-      List.generate(4, (_) => TextEditingController()); // 4 ô OTP mẫu
 
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: AppColors.textPrimary),
-          title: const Text(
-            'Xác nhận OTP',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
+  // Lấy OTP hiện tại
+  String get _currentOtp =>
+      _otpControllers.map((c) => c.text.trim()).join();
+
+  // Validate đơn giản rồi gọi _onOtpSuccess
+  Future<void> _onConfirmPressed() async {
+    final otp = _currentOtp;
+    if (otp.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập đủ 4 số OTP')),
+      );
+      return;
+    }
+
+    // TODO: gọi API verify OTP, nếu OK thì:
+    await _onOtpSuccess(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        title: const Text(
+          'Xác nhận OTP',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
-                const Center(
-                  child: Text(
-                    'Nhập mã OTP gồm 4 số\nđã gửi tới số điện thoại của bạn.',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.welcomeSubtitle,
-                  ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 32),
+              const Center(
+                child: Text(
+                  'Nhập mã OTP gồm 4 số\nđã gửi tới số điện thoại của bạn.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.welcomeSubtitle,
                 ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(
-                    4,
-                        (index) =>
-                        SizedBox(
-                          width: 60,
-                          child: TextField(
-                            controller: controllers[index],
-                            textAlign: TextAlign.center,
-                            keyboardType: TextInputType.number,
-                            maxLength: 1,
-                            decoration: InputDecoration(
-                              counterText: '',
-                              filled: true,
-                              fillColor: Colors.white,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 14, horizontal: 0),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide:
-                                const BorderSide(color: AppColors.primarySoft),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                    color: AppColors.primary, width: 1.4),
-                              ),
-                            ),
-                          ),
+              ),
+              const SizedBox(height: 24),
+
+              // ==== HÀNG 4 Ô OTP ====
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(
+                  4,
+                      (index) => SizedBox(
+                    width: 60,
+                    child: TextField(
+                      controller: _otpControllers[index],
+                      focusNode: _focusNodes[index],
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      maxLength: 1,
+                      onChanged: (value) {
+                        if (value.isNotEmpty) {
+                          // Nếu chưa phải ô cuối -> chuyển focus sang ô phải
+                          if (index < 3) {
+                            _focusNodes[index + 1].requestFocus();
+                          } else {
+                            // Ô cuối cùng -> bỏ focus (đóng bàn phím)
+                            _focusNodes[index].unfocus();
+                          }
+                        } else {
+                          // Nếu bấm xoá và không có ký tự, có thể nhảy về ô trái (tuỳ thích)
+                          if (index > 0) {
+                            _focusNodes[index - 1].requestFocus();
+                          }
+                        }
+                      },
+                      decoration: InputDecoration(
+                        counterText: '',
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                          const BorderSide(color: AppColors.primarySoft),
                         ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 1.4),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Gửi lại OTP
+              TextButton(
+                onPressed: () {
+                  // TODO: Gửi lại OTP
+                },
+                child: const Text('Gửi lại OTP'),
+              ),
+
+
+      // ==== Đăng nhập bằng mật khẩu ====
                 TextButton(
                   onPressed: () {
-                    // TODO: Gửi lại OTP
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LoginPasswordPage(),
+                      ),
+                    );
                   },
-                  child: const Text('Gửi lại OTP'),
+                  child: const Text(
+                    'Đăng nhập bằng mật khẩu',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
+
                 const Spacer(),
                 SizedBox(
                   height: 52,
