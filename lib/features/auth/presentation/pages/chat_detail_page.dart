@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
+import 'package:minichatappmobile/core/theme/theme_x.dart';
+import 'package:minichatappmobile/core/theme/app_appearance.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String title;
@@ -26,7 +30,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   void initState() {
     super.initState();
 
-    // Fake trước vài tin nhắn
     _messages.addAll([
       _Message(
         text: 'Hello ${widget.title} 👋',
@@ -68,7 +71,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     });
     _messageController.clear();
 
-    // Scroll xuống cuối
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -89,20 +91,25 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final appearance = context.watch<AppAppearance>();
+    final radius = appearance.bubbleStyle == BubbleStyle.round ? 18.0 : 8.0;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.bg,
+
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        backgroundColor: context.bg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: IconThemeData(color: context.text),
         title: Row(
           children: [
-            // Avatar nhỏ trên app bar
             CircleAvatar(
               radius: 18,
-              backgroundColor:
-              widget.isGroup ? AppColors.secondary : AppColors.primary,
+              backgroundColor: widget.isGroup
+                  ? Theme.of(context).colorScheme.secondary
+                  : context.primary,
               child: widget.isGroup
                   ? const Icon(Icons.group, size: 18, color: Colors.white)
                   : Text(
@@ -114,25 +121,28 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              widget.title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Text(
+                widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: context.text,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              // TODO: mở info user / group
-            },
-            icon: const Icon(Icons.more_vert),
+            onPressed: () {},
+            icon: Icon(Icons.more_vert, color: context.text),
           ),
         ],
       ),
+
       body: Column(
         children: [
           // Danh sách message
@@ -144,7 +154,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               itemBuilder: (context, index) {
                 final m = _messages[index];
                 final isMe = m.fromMe;
-                return _MessageBubble(message: m, isMe: isMe);
+                return _MessageBubble(
+                  message: m,
+                  isMe: isMe,
+                  bubbleRadius: radius,
+                );
               },
             ),
           ),
@@ -153,41 +167,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
           SafeArea(
             top: false,
             child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
               decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
+                color: context.bg,
+                border: Border(top: BorderSide(color: context.divider.withOpacity(0.25))),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () {
-                      // TODO: mở gallery / camera
-                    },
+                    onPressed: () {},
                     icon: const Icon(Icons.add_circle_outline),
-                    color: AppColors.primary,
+                    color: context.primary,
                   ),
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(24),
+                        color: context.surface,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: context.divider.withOpacity(0.25)),
                       ),
                       child: TextField(
                         controller: _messageController,
                         minLines: 1,
                         maxLines: 4,
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: context.text),
+                        decoration: InputDecoration(
                           border: InputBorder.none,
                           hintText: 'Nhắn tin...',
+                          hintStyle: TextStyle(color: context.subtext),
                         ),
                       ),
                     ),
@@ -199,7 +207,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: context.primary,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -219,11 +227,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 
   String _initials(String name) {
-    final parts = name.trim().split(' ');
+    final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-    return (parts.first.characters.first + parts.last.characters.first)
-        .toUpperCase();
+    return (parts.first.characters.first + parts.last.characters.first).toUpperCase();
   }
 }
 
@@ -242,50 +249,53 @@ class _Message {
 class _MessageBubble extends StatelessWidget {
   final _Message message;
   final bool isMe;
+  final double bubbleRadius;
 
   const _MessageBubble({
     super.key,
     required this.message,
     required this.isMe,
+    required this.bubbleRadius,
   });
 
   @override
   Widget build(BuildContext context) {
-    final alignment =
-    isMe ? Alignment.centerRight : Alignment.centerLeft; // căn trái/phải
-    final bgColor = isMe ? AppColors.primary : Colors.white;
-    final textColor = isMe ? Colors.white : AppColors.textPrimary;
+    final alignment = isMe ? Alignment.centerRight : Alignment.centerLeft;
 
+    final bgColor = isMe ? context.primary : context.surface;
+    final textColor = isMe ? Colors.white : context.text;
+
+    // Bo góc theo style (round/flat) nhưng vẫn giữ “đuôi” nhẹ
+    final r = bubbleRadius;
     final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(18),
-      topRight: const Radius.circular(18),
-      bottomLeft: Radius.circular(isMe ? 18 : 4),
-      bottomRight: Radius.circular(isMe ? 4 : 18),
+      topLeft: Radius.circular(r),
+      topRight: Radius.circular(r),
+      bottomLeft: Radius.circular(isMe ? r : (r <= 10 ? 4 : 6)),
+      bottomRight: Radius.circular(isMe ? (r <= 10 ? 4 : 6) : r),
     );
 
     return Align(
       alignment: alignment,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        padding:
-        const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.7,
         ),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: borderRadius,
+          border: isMe ? null : Border.all(color: context.divider.withOpacity(0.20)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Column(
-          crossAxisAlignment:
-          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(
               message.text,
@@ -299,9 +309,7 @@ class _MessageBubble extends StatelessWidget {
               message.time,
               style: AppTextStyles.legalText.copyWith(
                 fontSize: 10,
-                color: isMe
-                    ? Colors.white.withOpacity(0.8)
-                    : AppColors.textSecondary,
+                color: isMe ? Colors.white.withOpacity(0.80) : context.subtext,
               ),
             ),
           ],
@@ -310,4 +318,3 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 }
-
