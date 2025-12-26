@@ -1,8 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:dio/dio.dart';
+
+import 'package:minichatappmobile/core/network/api_client.dart';
+import 'package:minichatappmobile/core/storage/token_storage.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
+
 import 'package:minichatappmobile/features/auth/presentation/pages/login_page.dart';
-import 'package:minichatappmobile/features/auth/presentation/pages/register/register_phone_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/Register/register_phone_page.dart';
+import 'package:minichatappmobile/features/home/home_page.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -13,14 +22,29 @@ class WelcomePage extends StatefulWidget {
 
 class _WelcomePageState extends State<WelcomePage> {
   bool agree = false;
+
+  final _tokenStorage = TokenStorage();
+  late final ApiClient _api;
+
+  bool _googleLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _api = ApiClient(_tokenStorage);
+  }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   void _showTermsDialog() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Điều khoản & Chính sách bảo mật'),
           content: SizedBox(
             width: double.maxFinite,
@@ -28,42 +52,28 @@ class _WelcomePageState extends State<WelcomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  Text(
-                    '1. Mục đích sử dụng\n',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  Text('1. Mục đích sử dụng\n',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   Text(
                     'Ứng dụng dùng để gọi điện, nhắn tin và chia sẻ nội dung '
                         'giữa người dùng theo thời gian thực cho mục đích cá nhân, '
                         'không sử dụng cho các hoạt động vi phạm pháp luật.\n\n',
                   ),
+                  Text('2. Quyền riêng tư\n',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   Text(
-                    '2. Quyền riêng tư\n',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    'Chúng tôi chỉ thu thập thông tin cần thiết để cung cấp dịch vụ. '
+                        'Thông tin tài khoản được bảo mật.\n\n',
                   ),
-                  Text(
-                    'Chúng tôi chỉ thu thập thông tin cần thiết (số điện thoại, '
-                        'tên hiển thị, ảnh đại diện...) để cung cấp dịch vụ. '
-                        'Thông tin tài khoản được bảo mật và không chia sẻ cho bên thứ ba '
-                        'khi chưa có sự đồng ý của bạn, trừ khi có yêu cầu từ cơ quan chức năng.\n\n',
-                  ),
-                  Text(
-                    '3. Hành vi bị cấm\n',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  Text('3. Hành vi bị cấm\n',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   Text(
                     'Không được sử dụng ứng dụng để spam, lừa đảo, phát tán nội dung '
-                        'bạo lực, khiêu dâm, thù hằn hoặc vi phạm pháp luật hiện hành.\n\n',
+                        'vi phạm pháp luật.\n\n',
                   ),
-                  Text(
-                    '4. Thay đổi điều khoản\n',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    'Điều khoản có thể được cập nhật theo từng thời điểm. '
-                        'Việc tiếp tục sử dụng ứng dụng sau khi điều khoản được cập nhật '
-                        'đồng nghĩa với việc bạn đã chấp nhận các nội dung thay đổi.',
-                  ),
+                  Text('4. Thay đổi điều khoản\n',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text('Điều khoản có thể được cập nhật theo từng thời điểm.'),
                 ],
               ),
             ),
@@ -78,6 +88,79 @@ class _WelcomePageState extends State<WelcomePage> {
       },
     );
   }
+
+  Future<void> _loginGoogle() async {
+    if (_googleLoading) return;
+
+    if (!agree) {
+      _toast('Bạn cần đồng ý Điều khoản & Chính sách trước khi tiếp tục.');
+      return;
+    }
+
+    setState(() => _googleLoading = true);
+
+    try {
+      final google = GoogleSignIn(
+        scopes: const ['email'],
+        serverClientId:
+        '450123478574-kfci7mj8dp1398tdsgpmiet0uiefbdu2.apps.googleusercontent.com',
+      );
+
+      await google.signOut(); // reset khi test
+      final account = await google.signIn();
+
+      if (account == null) {
+        _toast('Bạn đã huỷ đăng nhập Google.');
+        return;
+      }
+
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+
+      if (idToken == null) {
+        throw Exception('Không lấy được idToken từ Google.');
+      }
+
+      // ✅ Call backend: /auth/login-google -> { accessToken, user? }
+      final res = await _api.dio.post(
+        "/auth/login-google",
+        data: {"idToken": idToken},
+      );
+
+      final data = res.data;
+      if (data is! Map) {
+        throw Exception('Response backend không hợp lệ.');
+      }
+
+      final accessToken = data["accessToken"];
+      if (accessToken is! String || accessToken.isEmpty) {
+        throw Exception('Backend không trả accessToken.');
+      }
+
+      await _tokenStorage.save(accessToken);
+
+      if (!mounted) return;
+
+      // ✅ Không ép phone: đi thẳng Home
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    } on DioException catch (e) {
+      _toast(
+        e.type == DioExceptionType.connectionError
+            ? 'Không kết nối được server (IP/PORT sai hoặc backend chưa chạy)'
+            : 'Lỗi gọi API: ${e.message}',
+      );
+    } on SocketException {
+      _toast('Không kết nối được server. Kiểm tra Wi-Fi/IP máy backend.');
+    } catch (e) {
+      _toast('Google login lỗi: $e');
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -86,7 +169,6 @@ class _WelcomePageState extends State<WelcomePage> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Nền wave phía trên
           Positioned(
             top: 0,
             left: 0,
@@ -94,13 +176,10 @@ class _WelcomePageState extends State<WelcomePage> {
             child: ClipPath(
               clipper: TopWaveClipper(),
               child: Container(
-                height: size.height * 0.52, // wave cao hơn
+                height: size.height * 0.52,
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      AppColors.mint,       // #ADEEE2
-                      AppColors.primarySoft // xanh tím nhạt
-                    ],
+                    colors: [AppColors.mint, AppColors.primarySoft],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -108,17 +187,14 @@ class _WelcomePageState extends State<WelcomePage> {
               ),
             ),
           ),
-
-          // Nội dung chính
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 70), // đẩy logo xuống trong wave
+                  const SizedBox(height: 70),
 
-                  // Logo
                   Center(
                     child: Container(
                       height: 100,
@@ -143,14 +219,7 @@ class _WelcomePageState extends State<WelcomePage> {
                   ),
 
                   const SizedBox(height: 26),
-
-                  Center(
-                    child: Text(
-                      'Welcome',
-                      style: AppTextStyles.welcomeTitle,
-                    ),
-                  ),
-
+                  Center(child: Text('Welcome', style: AppTextStyles.welcomeTitle)),
                   const SizedBox(height: 12),
 
                   const Center(
@@ -161,27 +230,19 @@ class _WelcomePageState extends State<WelcomePage> {
                     ),
                   ),
 
-                  const SizedBox(height: 85), // tách khỏi wave, bắt đầu vùng trắng
+                  const SizedBox(height: 85),
 
-                  // Nút Đăng nhập
+                  // ✅ NÚT 1: Đăng nhập (giữ như cũ)
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
                       onPressed: () {
                         if (!agree) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Bạn cần đồng ý Điều khoản & Chính sách trước khi tiếp tục.',
-                              ),
-                            ),
-                          );
+                          _toast('Bạn cần đồng ý Điều khoản & Chính sách trước khi tiếp tục.');
                           return;
                         }
                         Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const LoginPage(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
                         );
                       },
                       child: const Text('Đăng nhập'),
@@ -190,20 +251,18 @@ class _WelcomePageState extends State<WelcomePage> {
 
                   const SizedBox(height: 16),
 
-                  // Nút Google
+                  // ✅ NÚT 2: Google (giữ như cũ)
                   SizedBox(
                     height: 52,
                     child: OutlinedButton(
-                      onPressed: () {
-                        // TODO: Google sign-in
-                      },
+                      onPressed: _googleLoading ? null : _loginGoogle,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.g_mobiledata, size: 30),
                           const SizedBox(width: 8),
                           Text(
-                            'Tiếp tục với Google',
+                            _googleLoading ? 'Đang xử lý...' : 'Tiếp tục với Google',
                             style: AppTextStyles.outlineButtonText,
                           ),
                         ],
@@ -213,15 +272,17 @@ class _WelcomePageState extends State<WelcomePage> {
 
                   const SizedBox(height: 12),
 
-                  // Nút tiếp tục bằng số điện thoại
+                  // ✅ NÚT 3: Số điện thoại (giữ như cũ)
                   SizedBox(
                     height: 52,
                     child: OutlinedButton(
                       onPressed: () {
+                        if (!agree) {
+                          _toast('Bạn cần đồng ý Điều khoản & Chính sách trước khi tiếp tục.');
+                          return;
+                        }
                         Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder:(_) => const RegisterPhonePage(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const RegisterPhonePage()),
                         );
                       },
                       child: Text(
@@ -239,13 +300,11 @@ class _WelcomePageState extends State<WelcomePage> {
                       Checkbox(
                         value: agree,
                         activeColor: AppColors.primary,
-                        onChanged: (v) {
-                          setState(() => agree = v ?? false);
-                        },
+                        onChanged: (v) => setState(() => agree = v ?? false),
                       ),
                       Expanded(
                         child: InkWell(
-                          onTap: _showTermsDialog, // mở popup khi bấm vào text
+                          onTap: _showTermsDialog,
                           child: Text(
                             'Tôi đồng ý với Điều khoản & Chính sách bảo mật',
                             style: AppTextStyles.legalText.copyWith(
@@ -268,35 +327,25 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 }
 
-/// Clipper tạo shape wave cong phía trên
 class TopWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
-
-    // Bắt đầu từ góc trái, đi xuống 75% chiều cao
     path.lineTo(0, size.height * 0.75);
-
-    // Cong thứ nhất
     path.quadraticBezierTo(
       size.width * 0.25,
       size.height,
       size.width * 0.55,
       size.height * 0.82,
     );
-
-    // Cong thứ hai
     path.quadraticBezierTo(
       size.width * 0.85,
       size.height * 0.65,
       size.width,
       size.height * 0.8,
     );
-
-    // Đóng path
     path.lineTo(size.width, 0);
     path.close();
-
     return path;
   }
 
