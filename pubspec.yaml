@@ -25,6 +25,7 @@ dependencies:
 
   # Realtime Socket.IO
   socket_io_client: ^2.0.3+1
+  http: ^1.2.2
 
   # Utilities
   intl: ^0.19.0

@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
+import 'dart:convert';
+import 'package:minichatappmobile/core/socket/socket_service.dart';
+import 'package:minichatappmobile/core/config/app_config.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String title;
   final bool isGroup;
+  final String conversationId;
+  final String myUserId;
 
   const ChatDetailPage({
     super.key,
     required this.title,
     this.isGroup = false,
+    required this.conversationId,
+    required this.myUserId,
   });
 
   @override
@@ -25,29 +32,63 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   @override
   void initState() {
     super.initState();
+    debugPrint('🧩 ChatDetail INIT: myUserId=${widget.myUserId} | room=${widget.conversationId}');
 
-    // Fake trước vài tin nhắn
-    _messages.addAll([
-      _Message(
-        text: 'Hello ${widget.title} 👋',
-        fromMe: true,
-        time: '09:30',
-      ),
-      _Message(
-        text: 'Chào bạn, đây là đoạn chat demo.',
-        fromMe: false,
-        time: '09:31',
-      ),
-      _Message(
-        text: 'Sau này sẽ thay bằng dữ liệu từ backend + socket.',
-        fromMe: true,
-        time: '09:32',
-      ),
-    ]);
+
+    SocketService.I.connect(AppConfig.socketUrl);
+
+    SocketService.I.joinConversation(
+      widget.conversationId,
+      widget.myUserId,
+    );
+
+    SocketService.I.onNewMessage((data) {
+      print('🔥 NEW MESSAGE FROM SOCKET: $data');
+
+      final map = data is Map ? data : jsonDecode(data.toString());
+
+      setState(() {
+        _messages.add(
+          _Message(
+            text: map['content'],
+            fromMe: map['senderId'] == widget.myUserId,
+            time: _fakeTimeNow(),
+          ),
+        );
+      });
+
+      _scrollToBottom();
+    });
+
+    // =============================
+    // TODO: REMOVE FAKE DATA
+    // Khi backend message API + socket hoàn chỉnh
+    // =============================
+    /*
+  _messages.addAll([
+    _Message(
+      text: 'Hello ${widget.title} 👋',
+      fromMe: true,
+      time: '09:30',
+    ),
+    _Message(
+      text: 'Chào bạn, đây là đoạn chat demo.',
+      fromMe: false,
+      time: '09:31',
+    ),
+    _Message(
+      text: 'Sau này sẽ thay bằng dữ liệu từ backend + socket.',
+      fromMe: true,
+      time: '09:32',
+    ),
+  ]);
+  */
+
   }
 
   @override
   void dispose() {
+    SocketService.I.offNewMessage();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -57,6 +98,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
+    print('📤 SEND MESSAGE: $text');
+
+    // 1️⃣ SEND SOCKET MESSAGE
+    SocketService.I.sendMessage(
+      widget.conversationId,
+      widget.myUserId,
+      text,
+    );
+
+    // 2️⃣ ADD LOCAL MESSAGE (optimistic UI)
     setState(() {
       _messages.add(
         _Message(
@@ -66,19 +117,24 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         ),
       );
     });
-    _messageController.clear();
 
-    // Scroll xuống cuối
+    _messageController.clear();
+    _scrollToBottom();
+  }
+
+
+  void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 60,
+          _scrollController.position.maxScrollExtent + 80,
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
       }
     });
   }
+
 
   String _fakeTimeNow() {
     final now = DateTime.now();

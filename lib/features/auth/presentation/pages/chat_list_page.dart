@@ -18,6 +18,7 @@ class _ChatListPageState extends State<ChatListPage> {
   // Fake data list chat
   final List<_Conversation> _conversations = const [
     _Conversation(
+      id: 'c1',
       name: 'Nguyen A',
       lastMessageDetail: '15 phút trước',
       timeLabel: '15 phút trước',
@@ -25,6 +26,7 @@ class _ChatListPageState extends State<ChatListPage> {
       hasUnread: true,
     ),
     _Conversation(
+      id: 'c1',
       name: 'Tran B',
       lastMessageDetail: 'Bạn: hfajod',
       timeLabel: '1 giờ trước',
@@ -32,6 +34,7 @@ class _ChatListPageState extends State<ChatListPage> {
       hasUnread: true,
     ),
     _Conversation(
+      id: 'c1',
       name: 'Group học tập',
       lastMessageDetail: 'Nguyen A: [Sticker]',
       timeLabel: 'Hôm qua',
@@ -39,6 +42,7 @@ class _ChatListPageState extends State<ChatListPage> {
       hasUnread: false,
     ),
     _Conversation(
+      id: 'c1',
       name: 'Tran C',
       lastMessageDetail: 'Bạn: sffs',
       timeLabel: '05/11',
@@ -70,7 +74,7 @@ class _ChatListPageState extends State<ChatListPage> {
           children: [
             const SizedBox(height: 8),
 
-            /// TOP BAR: avatar + nút +
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -206,11 +210,15 @@ class _ChatListPageState extends State<ChatListPage> {
                   return _ConversationTile(
                     conversation: c,
                     onTap: () {
+                      debugPrint('➡️ OPEN CHAT: myUserId=u1 | conversationId=${c.id} | title=${c.name}');
+
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => ChatDetailPage(
                             title: c.name,
                             isGroup: c.isGroup,
+                            conversationId: c.id,
+                            myUserId: 'u1', // máy 1
                           ),
                         ),
                       );
@@ -272,6 +280,7 @@ class _ChatListPageState extends State<ChatListPage> {
 
 /// MODEL fake một cuộc trò chuyện
 class _Conversation {
+  final String id;
   final String name;
   final String lastMessageDetail;
   final String timeLabel;
@@ -279,6 +288,7 @@ class _Conversation {
   final bool hasUnread;
 
   const _Conversation({
+    required this.id,
     required this.name,
     required this.lastMessageDetail,
     required this.timeLabel,
