@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'package:minichatappmobile/core/theme/theme_x.dart';
+
 
 class AppTextStyles {
   AppTextStyles._();

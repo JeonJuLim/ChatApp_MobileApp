@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:minichatappmobile/core/theme/theme_x.dart';
+
 
 class AppColors {
   AppColors._();

@@ -1,6 +1,6 @@
 name: minichatappmobile
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
@@ -10,14 +10,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.3.0
+
   cupertino_icons: ^1.0.8
+
+  # Local preferences
+  shared_preferences: ^2.3.2
 
   # HTTP Client
   dio: ^5.4.0
 
   # State Management
   flutter_bloc: ^8.1.3
+  provider: ^6.1.2
 
   # Local Storage (token, cache user, cache chat)
   hive: ^2.2.3
@@ -29,12 +33,13 @@ dependencies:
 
   # Utilities
   intl: ^0.19.0
+  mobile_scanner: ^7.1.4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
+mobile_scanner: ^5.2.3
