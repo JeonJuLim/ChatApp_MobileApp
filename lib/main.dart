@@ -56,4 +56,5 @@ class MyApp extends StatelessWidget {
       home: isLoggedIn ? const ChatListPage() : const WelcomePage(),
     );
   }
+
 }

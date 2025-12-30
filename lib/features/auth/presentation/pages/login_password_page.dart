@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
 
 class LoginPasswordPage extends StatefulWidget {
   const LoginPasswordPage({super.key});
@@ -10,34 +14,95 @@ class LoginPasswordPage extends StatefulWidget {
 }
 
 class _LoginPasswordPageState extends State<LoginPasswordPage> {
-  final TextEditingController _phoneOrEmailController =
-  TextEditingController();
+  final TextEditingController _phoneOrEmailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _loading = false;
+
+  // ANDROID EMULATOR: 10.0.2.2 (không dùng localhost)
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: "http://10.0.2.2:3001",
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      headers: {"Content-Type": "application/json"},
+    ),
+  );
+
+  bool _isEmail(String input) {
+    // đủ dùng cho case login email
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(input);
+  }
+
+  Future<void> _saveTokenAndGoChatList(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
+    await prefs.setString('accessToken', token);
+
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const ChatListPage()),
+          (route) => false,
+    );
+  }
+
+  Future<void> _onLogin() async {
+    final id = _phoneOrEmailController.text.trim();
+    final password = _passwordController.text;
+
+    if (id.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập đầy đủ tài khoản và mật khẩu')),
+      );
+      return;
+    }
+
+    // Hiện tại backend bạn đã làm chắc chắn cho EMAIL (non-OTP).
+    // Phone+password chỉ chạy khi backend có endpoint riêng.
+    if (!_isEmail(id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hiện tại chỉ hỗ trợ đăng nhập bằng EMAIL + mật khẩu.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      final res = await _dio.post(
+        "/auth/login-email",
+        data: {"email": id, "password": password},
+      );
+
+      final token = res.data["accessToken"] as String;
+      await _saveTokenAndGoChatList(token);
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map && (e.response?.data["message"] != null)
+          ? e.response?.data["message"].toString()
+          : e.message ?? "Unknown error";
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đăng nhập thất bại: $msg")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đăng nhập thất bại: $e")),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   void dispose() {
     _phoneOrEmailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  void _onLogin() {
-    final id = _phoneOrEmailController.text.trim();
-    final password = _passwordController.text;
-
-    if (id.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập đầy đủ tài khoản và mật khẩu'),
-        ),
-      );
-      return;
-    }
-
-    // TODO: gọi API đăng nhập bằng mật khẩu
-    // Nếu thành công: lưu token, chuyển sang ChatListPage
   }
 
   @override
@@ -79,7 +144,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.white,
-                  hintText: 'Nhập số điện thoại hoặc email',
+                  hintText: 'Nhập email (ví dụ: test1@gmail.com)',
                   hintStyle: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 15,
@@ -90,8 +155,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide:
-                    const BorderSide(color: AppColors.primarySoft),
+                    borderSide: const BorderSide(color: AppColors.primarySoft),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -130,8 +194,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide:
-                    const BorderSide(color: AppColors.primarySoft),
+                    borderSide: const BorderSide(color: AppColors.primarySoft),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -147,11 +210,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                           : Icons.visibility_outlined,
                       color: AppColors.textSecondary,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
               ),
@@ -178,10 +237,10 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _onLogin,
-                  child: const Text(
-                    'ĐĂNG NHẬP',
-                    style: TextStyle(
+                  onPressed: _loading ? null : _onLogin,
+                  child: Text(
+                    _loading ? 'Đang đăng nhập...' : 'ĐĂNG NHẬP',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),

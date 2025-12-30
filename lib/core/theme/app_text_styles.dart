@@ -53,4 +53,5 @@ class AppTextStyles {
     fontSize: 14,
     color: Colors.black87,
   );
+
 }

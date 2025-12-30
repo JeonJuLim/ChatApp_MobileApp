@@ -18,6 +18,7 @@ datasource db {
 // ===========================
 // USERS
 // ===========================
+<<<<<<< HEAD
 model User {
   id           String   @id @default(uuid())
 
@@ -62,6 +63,33 @@ model User {
   // ===========================
   // RELATIONS
   // ===========================
+=======
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model User {
+  id            String   @id @default(uuid())
+
+  username      String?  @unique
+  fullName      String?
+  avatarUrl     String?
+  status        String? // online, offline, typing
+
+  email         String?  @unique
+  phone         String?  @unique
+  phoneVerified Boolean  @default(false)
+  emailVerified Boolean  @default(false)
+
+  provider      AuthProvider @default(LOCAL)
+  passwordHash  String?
+  googleId      String?  @unique
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+>>>>>>> 8af37495b4919a71eec88fa862703bbc5479915f
   conversationsCreated Conversation[]       @relation("creator")
   messages             Message[]
   messageStatus        MessageStatus[]
