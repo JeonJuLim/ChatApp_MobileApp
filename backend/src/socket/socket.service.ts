@@ -1,27 +1,51 @@
 import { Injectable } from '@nestjs/common';
 import { Socket } from 'socket.io';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class SocketService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async joinConversation(client: Socket, data: { conversationId: string; userId: string }) {
+  async joinConversation(
+    client: Socket,
+    data: { conversationId: string; userId: string },
+  ) {
     client.join(data.conversationId);
-    console.log(`User ${data.userId} joined conversation ${data.conversationId}`);
+
+    console.log(
+      `👥 User ${data.userId} joined conversation ${data.conversationId}`,
+    );
+
     return { joined: true };
   }
 
-  async sendMessage(client: Socket, data: any) {
-    const message = {
-      id: Date.now().toString(),
-      conversationId: data.conversationId,
-      senderId: data.senderId,
-      content: data.content,
-      createdAt: new Date(),
-    };
+  async sendMessage(
+    client: Socket,
+    data: {
+      conversationId: string;
+      senderId: string;
+      content: string;
+    },
+  ) {
+
+    const message = await this.prisma.message.create({
+      data: {
+        conversationId: data.conversationId,
+        senderId: data.senderId,
+        content: data.content,
+        type: 'text',
+      },
+      include: {
+        sender: {
+          select: { id: true, username: true, fullName: true },
+        },
+      },
+    });
+
 
     client.to(data.conversationId).emit('new_message', message);
+
+
     return message;
   }
 }

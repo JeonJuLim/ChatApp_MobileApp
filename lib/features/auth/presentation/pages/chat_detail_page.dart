@@ -1,9 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:minichatappmobile/core/config/app_config.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
-import 'dart:convert';
-import 'package:minichatappmobile/core/socket/socket_service.dart';
-import 'package:minichatappmobile/core/config/app_config.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String title;
@@ -14,9 +16,9 @@ class ChatDetailPage extends StatefulWidget {
   const ChatDetailPage({
     super.key,
     required this.title,
-    this.isGroup = false,
     required this.conversationId,
     required this.myUserId,
+    this.isGroup = false,
   });
 
   @override
@@ -24,125 +26,138 @@ class ChatDetailPage extends StatefulWidget {
 }
 
 class _ChatDetailPageState extends State<ChatDetailPage> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _messageCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
 
   final List<_Message> _messages = [];
+  Timer? _poller;
+  bool _loading = false;
 
+  // =========================
+  // INIT
+  // =========================
   @override
   void initState() {
     super.initState();
-    debugPrint('🧩 ChatDetail INIT: myUserId=${widget.myUserId} | room=${widget.conversationId}');
 
-
-    SocketService.I.connect(AppConfig.socketUrl);
-
-    SocketService.I.joinConversation(
-      widget.conversationId,
-      widget.myUserId,
+    debugPrint(
+      '🧩 ChatDetail INIT | user=${widget.myUserId} | room=${widget.conversationId}',
     );
 
-    SocketService.I.onNewMessage((data) {
-      print('🔥 NEW MESSAGE FROM SOCKET: $data');
+    _loadMessages();
 
-      final map = data is Map ? data : jsonDecode(data.toString());
-
-      setState(() {
-        _messages.add(
-          _Message(
-            text: map['content'],
-            fromMe: map['senderId'] == widget.myUserId,
-            time: _fakeTimeNow(),
-          ),
-        );
-      });
-
-      _scrollToBottom();
-    });
-
-    // =============================
-    // TODO: REMOVE FAKE DATA
-    // Khi backend message API + socket hoàn chỉnh
-    // =============================
-    /*
-  _messages.addAll([
-    _Message(
-      text: 'Hello ${widget.title} 👋',
-      fromMe: true,
-      time: '09:30',
-    ),
-    _Message(
-      text: 'Chào bạn, đây là đoạn chat demo.',
-      fromMe: false,
-      time: '09:31',
-    ),
-    _Message(
-      text: 'Sau này sẽ thay bằng dữ liệu từ backend + socket.',
-      fromMe: true,
-      time: '09:32',
-    ),
-  ]);
-  */
-
+    // 🔁 Polling mỗi 1 giây
+    _poller = Timer.periodic(
+      const Duration(seconds: 1),
+          (_) => _loadMessages(),
+    );
   }
 
   @override
   void dispose() {
-    SocketService.I.offNewMessage();
-    _messageController.dispose();
-    _scrollController.dispose();
+    _poller?.cancel();
+    _messageCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
-  void _sendMessage() {
-    final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+  // =========================
+  // LOAD MESSAGE HISTORY
+  // =========================
+  Future<void> _loadMessages() async {
+    if (_loading) return;
+    _loading = true;
 
-    print('📤 SEND MESSAGE: $text');
-
-    // 1️⃣ SEND SOCKET MESSAGE
-    SocketService.I.sendMessage(
-      widget.conversationId,
-      widget.myUserId,
-      text,
-    );
-
-    // 2️⃣ ADD LOCAL MESSAGE (optimistic UI)
-    setState(() {
-      _messages.add(
-        _Message(
-          text: text,
-          fromMe: true,
-          time: _fakeTimeNow(),
+    try {
+      final res = await http.get(
+        Uri.parse(
+          '${AppConfig.apiBaseUrl}/messages/${widget.conversationId}',
         ),
       );
-    });
 
-    _messageController.clear();
-    _scrollToBottom();
+      if (res.statusCode != 200) return;
+
+      final list = jsonDecode(res.body) as List;
+
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(
+            list.map(
+                  (m) => _Message(
+                text: m['content'] ?? '',
+                fromMe: m['senderId'] == widget.myUserId,
+                time: _formatTime(
+                  DateTime.parse(m['createdAt']),
+                ),
+              ),
+            ),
+          );
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint('❌ Load messages error: $e');
+    } finally {
+      _loading = false;
+    }
   }
 
+  // =========================
+  // SEND MESSAGE (REST)
+  // =========================
+  Future<void> _sendMessage() async {
+    final text = _messageCtrl.text.trim();
+    if (text.isEmpty) return;
 
+    _messageCtrl.clear();
+
+    try {
+      await http.post(
+        Uri.parse('${AppConfig.apiBaseUrl}/messages'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'conversationId': widget.conversationId,
+          'senderId': widget.myUserId,
+          'content': text,
+          'type': 'text',
+        }),
+      );
+
+      // Reload messages sau khi gửi
+      await _loadMessages();
+    } catch (e) {
+      debugPrint('❌ Send message error: $e');
+    }
+  }
+
+  // =========================
+  // HELPERS
+  // =========================
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 80,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
+      if (_scrollCtrl.hasClients) {
+        _scrollCtrl.jumpTo(
+          _scrollCtrl.position.maxScrollExtent + 80,
         );
       }
     });
   }
 
-
-  String _fakeTimeNow() {
-    final now = DateTime.now();
-    final hh = now.hour.toString().padLeft(2, '0');
-    final mm = now.minute.toString().padLeft(2, '0');
-    return '$hh:$mm';
+  String _formatTime(DateTime t) {
+    return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   }
 
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
+  // =========================
+  // UI
+  // =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,11 +165,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
-        centerTitle: false,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
         title: Row(
           children: [
-            // Avatar nhỏ trên app bar
             CircleAvatar(
               radius: 18,
               backgroundColor:
@@ -180,37 +193,33 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              // TODO: mở info user / group
-            },
-            icon: const Icon(Icons.more_vert),
-          ),
-        ],
       ),
       body: Column(
         children: [
-          // Danh sách message
+          // =========================
+          // MESSAGE LIST
+          // =========================
           Expanded(
             child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              controller: _scrollCtrl,
+              padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final m = _messages[index];
-                final isMe = m.fromMe;
-                return _MessageBubble(message: m, isMe: isMe);
+              itemBuilder: (_, i) {
+                final m = _messages[i];
+                return _MessageBubble(message: m);
               },
             ),
           ),
 
-          // Thanh nhập tin nhắn
+          // =========================
+          // INPUT
+          // =========================
           SafeArea(
             top: false,
             child: Container(
               padding:
-              const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -223,28 +232,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () {
-                      // TODO: mở gallery / camera
-                    },
-                    icon: const Icon(Icons.add_circle_outline),
-                    color: AppColors.primary,
-                  ),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _messageController,
-                        minLines: 1,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Nhắn tin...',
-                        ),
+                    child: TextField(
+                      controller: _messageCtrl,
+                      minLines: 1,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'Nhắn tin...',
                       ),
                     ),
                   ),
@@ -254,7 +249,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                     child: Container(
                       width: 40,
                       height: 40,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: AppColors.primary,
                         shape: BoxShape.circle,
                       ),
@@ -273,15 +268,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       ),
     );
   }
-
-  String _initials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-    return (parts.first.characters.first + parts.last.characters.first)
-        .toUpperCase();
-  }
 }
+
+// =========================
+// MODELS
+// =========================
 
 class _Message {
   final String text;
@@ -297,47 +288,30 @@ class _Message {
 
 class _MessageBubble extends StatelessWidget {
   final _Message message;
-  final bool isMe;
 
-  const _MessageBubble({
-    super.key,
-    required this.message,
-    required this.isMe,
-  });
+  const _MessageBubble({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    final alignment =
-    isMe ? Alignment.centerRight : Alignment.centerLeft; // căn trái/phải
-    final bgColor = isMe ? AppColors.primary : Colors.white;
-    final textColor = isMe ? Colors.white : AppColors.textPrimary;
-
-    final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(18),
-      topRight: const Radius.circular(18),
-      bottomLeft: Radius.circular(isMe ? 18 : 4),
-      bottomRight: Radius.circular(isMe ? 4 : 18),
-    );
+    final isMe = message.fromMe;
 
     return Align(
-      alignment: alignment,
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding:
-        const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.7,
         ),
         decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: borderRadius,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: isMe ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isMe ? 18 : 4),
+            bottomRight: Radius.circular(isMe ? 4 : 18),
+          ),
         ),
         child: Column(
           crossAxisAlignment:
@@ -346,8 +320,8 @@ class _MessageBubble extends StatelessWidget {
             Text(
               message.text,
               style: AppTextStyles.legalText.copyWith(
-                color: textColor,
-                height: 1.3,
+                color:
+                isMe ? Colors.white : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 2),
@@ -366,4 +340,3 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 }
-

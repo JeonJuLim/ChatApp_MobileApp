@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:minichatappmobile/core/config/app_config.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_page.dart';
-
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
@@ -15,56 +18,29 @@ class _ChatListPageState extends State<ChatListPage> {
   final TextEditingController _searchController = TextEditingController();
   int _currentTabIndex = 0;
 
-  // Fake data list chat
-  final List<_Conversation> _conversations = const [
-    _Conversation(
-      id: 'c1',
-      name: 'Nguyen A',
-      lastMessageDetail: '15 phút trước',
-      timeLabel: '15 phút trước',
-      isGroup: false,
-      hasUnread: true,
-    ),
-    _Conversation(
-      id: 'c1',
-      name: 'Tran B',
-      lastMessageDetail: 'Bạn: hfajod',
-      timeLabel: '1 giờ trước',
-      isGroup: false,
-      hasUnread: true,
-    ),
-    _Conversation(
-      id: 'c1',
-      name: 'Group học tập',
-      lastMessageDetail: 'Nguyen A: [Sticker]',
-      timeLabel: 'Hôm qua',
-      isGroup: true,
-      hasUnread: false,
-    ),
-    _Conversation(
-      id: 'c1',
-      name: 'Tran C',
-      lastMessageDetail: 'Bạn: sffs',
-      timeLabel: '05/11',
-      isGroup: false,
-      hasUnread: false,
-    ),
-  ];
-//xoá fake
+  // =========================
+  // REST: FETCH CONVERSATIONS
+  // =========================
+  Future<List<dynamic>> fetchConversations() async {
+    final res = await http.get(
+      Uri.parse('${AppConfig.apiBaseUrl}/conversations?userId=u101'),
+    );
+
+    debugPrint('STATUS: ${res.statusCode}');
+    debugPrint('BODY: ${res.body}');
+
+    return jsonDecode(res.body);
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  List<_Conversation> get _filteredConversations {
-    final q = _searchController.text.trim().toLowerCase();
-    if (q.isEmpty) return _conversations;
-    return _conversations
-        .where((c) => c.name.toLowerCase().contains(q))
-        .toList();
-  }
-
+  // =========================
+  // UI
+  // =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,59 +50,29 @@ class _ChatListPageState extends State<ChatListPage> {
           children: [
             const SizedBox(height: 8),
 
-
+            // =========================
+            // HEADER
+            // =========================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  // Avatar tròn mock
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.secondary,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.secondary,
                     child: const Icon(
                       Icons.person_outline,
                       color: Colors.white,
-                      size: 22,
                     ),
                   ),
                   const Spacer(),
-                  // Nút thêm cuộc trò chuyện / thêm bạn
-                  InkWell(
-                    onTap: () {
-                      // TODO: mở màn tạo chat mới
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppColors.mint,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.mint.withOpacity(0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.mint,
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
+                      size: 18,
                     ),
                   ),
                 ],
@@ -135,92 +81,88 @@ class _ChatListPageState extends State<ChatListPage> {
 
             const SizedBox(height: 16),
 
-            /// SEARCH BAR
+            // =========================
+            // SEARCH BAR (UI ONLY)
+            // =========================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Tìm kiếm...',
-                          hintStyle: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      height: 32,
-                      width: 32,
-                      margin: const EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.mint,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.search,
-                        size: 18,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.only(right: 12),
-                      child: Icon(
-                        Icons.notifications_none,
-                        size: 20,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
+              child: TextField(
+                controller: _searchController,
+                decoration: const InputDecoration(
+                  hintText: 'Tìm kiếm...',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(24)),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding:
+                  EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
             ),
 
             const SizedBox(height: 16),
 
-            /// LIST CHATS
+            // =========================
+            // CHAT LIST
+            // =========================
             Expanded(
-              child: ListView.builder(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                itemCount: _filteredConversations.length,
-                itemBuilder: (context, index) {
-                  final c = _filteredConversations[index];
-                  return _ConversationTile(
-                    conversation: c,
-                    onTap: () {
-                      debugPrint('➡️ OPEN CHAT: myUserId=u1 | conversationId=${c.id} | title=${c.name}');
+              child: FutureBuilder<List<dynamic>>(
+                future: fetchConversations(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
 
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ChatDetailPage(
-                            title: c.name,
-                            isGroup: c.isGroup,
-                            conversationId: c.id,
-                            myUserId: 'u1', // máy 1
-                          ),
-                        ),
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text('❌ Không tải được danh sách chat'),
+                    );
+                  }
+
+                  final conversations = snapshot.data!;
+                  if (conversations.isEmpty) {
+                    return const Center(
+                      child: Text('Chưa có cuộc trò chuyện'),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 4),
+                    itemCount: conversations.length,
+                    itemBuilder: (_, index) {
+                      final c = conversations[index];
+
+                      final String id = c['id'];
+                      final String title = c['title'] ?? 'Chat';
+                      final String lastMessage =
+                          c['lastMessage'] ?? '';
+                      final bool isGroup = c['type'] == 'group';
+                      final bool hasUnread =
+                          (c['unreadCount'] ?? 0) > 0;
+
+                      return _ConversationTile(
+                        title: title,
+                        lastMessage: lastMessage,
+                        isGroup: isGroup,
+                        hasUnread: hasUnread,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ChatDetailPage(
+                                title: title,
+                                conversationId: id,
+                                myUserId: 'u1',
+                                isGroup: isGroup,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   );
@@ -228,48 +170,33 @@ class _ChatListPageState extends State<ChatListPage> {
               ),
             ),
 
-            /// BOTTOM NAV
-            Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 10,
-                    offset: Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: BottomNavigationBar(
-                currentIndex: _currentTabIndex,
-                onTap: (value) {
-                  setState(() => _currentTabIndex = value);
-                  // TODO: khi có màn khác thì navigate
-                },
-                type: BottomNavigationBarType.fixed,
-                selectedItemColor: AppColors.primary,
-                unselectedItemColor: AppColors.textSecondary,
-                showUnselectedLabels: true,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.chat_bubble_outline),
-                    label: 'Tin nhắn',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.people_outline),
-                    label: 'Bạn bè',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.groups_outlined),
-                    label: 'Cộng đồng',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_outlined),
-                    label: 'Cài đặt',
-                  ),
-                ],
-              ),
+            // =========================
+            // BOTTOM NAV
+            // =========================
+            BottomNavigationBar(
+              currentIndex: _currentTabIndex,
+              onTap: (i) => setState(() => _currentTabIndex = i),
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.textSecondary,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.chat_bubble_outline),
+                  label: 'Tin nhắn',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.people_outline),
+                  label: 'Bạn bè',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.groups_outlined),
+                  label: 'Cộng đồng',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.settings_outlined),
+                  label: 'Cài đặt',
+                ),
+              ],
             ),
           ],
         ),
@@ -278,40 +205,28 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 }
 
-/// MODEL fake một cuộc trò chuyện
-class _Conversation {
-  final String id;
-  final String name;
-  final String lastMessageDetail;
-  final String timeLabel;
+// =========================
+// CONVERSATION TILE
+// =========================
+class _ConversationTile extends StatelessWidget {
+  final String title;
+  final String lastMessage;
   final bool isGroup;
   final bool hasUnread;
-
-  const _Conversation({
-    required this.id,
-    required this.name,
-    required this.lastMessageDetail,
-    required this.timeLabel,
-    required this.isGroup,
-    required this.hasUnread,
-  });
-}
-
-/// UI mỗi item trong danh sách chat
-class _ConversationTile extends StatelessWidget {
-  final _Conversation conversation;
   final VoidCallback onTap;
 
   const _ConversationTile({
-    required this.conversation,
+    required this.title,
+    required this.lastMessage,
+    required this.isGroup,
+    required this.hasUnread,
     required this.onTap,
   });
 
   String get _initials {
-    final parts = conversation.name.split(' ');
-    if (parts.length == 1) return parts.first.characters.first;
-    return (parts.first.characters.first + parts.last.characters.first)
-        .toUpperCase();
+    final parts = title.split(' ');
+    if (parts.length == 1) return parts.first[0];
+    return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 
   @override
@@ -322,92 +237,59 @@ class _ConversationTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             children: [
-              // Avatar
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: conversation.isGroup
-                        ? [AppColors.secondary, AppColors.mint]
-                        : [AppColors.primary, AppColors.secondary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Center(
-                  child: conversation.isGroup
-                      ? const Icon(Icons.group,
-                      size: 22, color: Colors.white)
-                      : Text(
-                    _initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+              CircleAvatar(
+                radius: 22,
+                backgroundColor:
+                isGroup ? AppColors.secondary : AppColors.primary,
+                child: isGroup
+                    ? const Icon(Icons.group, color: Colors.white)
+                    : Text(
+                  _initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-
-              // Name + last message
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      conversation.name,
+                      title,
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      conversation.lastMessageDetail,
+                      lastMessage,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.legalText.copyWith(
-                        color: conversation.isGroup
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
+                      style: AppTextStyles.legalText,
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(width: 8),
-
-              // Time + dot unread
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    conversation.timeLabel,
-                    style: AppTextStyles.legalText,
+              if (hasUnread)
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 6),
-                  if (conversation.hasUnread)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                ],
-              ),
+                ),
             ],
           ),
         ),

@@ -12,6 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
+  await prefs.remove('isLoggedIn');
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
   final appearance = AppAppearance();

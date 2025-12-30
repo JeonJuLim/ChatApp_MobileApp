@@ -3,9 +3,16 @@ CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "username" TEXT NOT NULL,
     "fullName" TEXT NOT NULL,
-    "passwordHash" TEXT NOT NULL,
     "avatarUrl" TEXT,
     "status" TEXT,
+    "authProvider" TEXT NOT NULL DEFAULT 'phone',
+    "googleSub" TEXT,
+    "phoneE164" TEXT,
+    "phoneVerifiedAt" TIMESTAMP(3),
+    "phoneVerifyRequired" BOOLEAN NOT NULL DEFAULT true,
+    "email" TEXT,
+    "emailVerifiedAt" TIMESTAMP(3),
+    "passwordHash" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -97,6 +104,15 @@ CREATE TABLE "CallLog" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_googleSub_key" ON "User"("googleSub");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_phoneE164_key" ON "User"("phoneE164");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- AddForeignKey
 ALTER TABLE "Conversation" ADD CONSTRAINT "Conversation_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

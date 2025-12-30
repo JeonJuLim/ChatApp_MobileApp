@@ -1,71 +1,61 @@
 import {
   WebSocketGateway,
+  WebSocketServer,
   SubscribeMessage,
   MessageBody,
+  ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  ConnectedSocket,
 } from '@nestjs/websockets';
-import { Socket } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { SocketService } from './socket.service';
 
 @WebSocketGateway({
   cors: {
     origin: '*',
   },
+  transports: ['websocket', 'polling'], // ✅ BẮT BUỘC
 })
 export class SocketGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
+  @WebSocketServer()
+  server: Server;
+
   constructor(private readonly socketService: SocketService) {}
 
-  // =============================
-  // CLIENT CONNECT
-  // =============================
   handleConnection(client: Socket) {
-    console.log('🟢 Client connected:', client.id);
+    console.log('🟢 SOCKET CONNECTED:', client.id);
   }
 
-  // =============================
-  // CLIENT DISCONNECT
-  // =============================
   handleDisconnect(client: Socket) {
-    console.log('🔴 Client disconnected:', client.id);
+    console.log('🔴 SOCKET DISCONNECTED:', client.id);
   }
 
-  // =============================
-  // JOIN CONVERSATION ROOM
-  // =============================
+  // JOIN ROOM
   @SubscribeMessage('join_conversation')
-  async handleJoinConversation(
-    @MessageBody()
-    data: { conversationId: string; userId: string },
+  handleJoin(
+    @MessageBody() data: { conversationId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    client.join(data.conversationId);
     console.log(
-      `👥 join_conversation | user=${data.userId} | room=${data.conversationId}`,
+      `👥 ${data.userId} joined room ${data.conversationId}`,
     );
-
-    return this.socketService.joinConversation(client, data);
   }
 
-  // =============================
   // SEND MESSAGE
-  // =============================
   @SubscribeMessage('send_message')
-  async handleSendMessage(
+  handleMessage(
     @MessageBody()
-    data: {
-      conversationId: string;
-      senderId: string;
-      content: string;
-    },
-    @ConnectedSocket() client: Socket,
+    data: { conversationId: string; senderId: string; content: string },
   ) {
     console.log(
-      `📩 send_message | sender=${data.senderId} | room=${data.conversationId} | content=${data.content}`,
+      `📩 ${data.senderId} -> ${data.conversationId}: ${data.content}`,
     );
 
-    return this.socketService.sendMessage(client, data);
+    this.server
+      .to(data.conversationId)
+      .emit('new_message', data);
   }
 }
