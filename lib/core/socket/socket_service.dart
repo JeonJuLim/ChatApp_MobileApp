@@ -6,111 +6,89 @@ class SocketService {
   static final SocketService I = SocketService._();
 
   IO.Socket? _socket;
-  bool _listenersAttached = false;
 
   bool get isConnected => _socket?.connected == true;
 
   void connect(String url, {VoidCallback? onConnected}) {
-    // ✅ Nếu socket đã tồn tại:
-    if (_socket != null) {
-      // nếu đã connected -> gọi callback luôn
-      if (_socket!.connected) {
-        onConnected?.call();
-        return;
-      }
-
-      // nếu chưa connected -> connect lại
-      debugPrint('🔁 Reconnecting socket to: $url');
-      _socket!.connect();
-      return;
-    }
-
-    debugPrint('🌐 Connecting socket to: $url');
+    if (_socket != null) return;
 
     _socket = IO.io(
       url,
       IO.OptionBuilder()
-          .setTransports(['polling', 'websocket']) // ✅ handshake ok
-          .enableReconnection()                   // ✅ tự reconnect
-          .setReconnectionAttempts(9999)
-          .setReconnectionDelay(500)
-          .setTimeout(8000)
-          .enableAutoConnect()
+          .setTransports(['websocket'])
+          .disableAutoConnect()
           .build(),
     );
 
-    // ✅ Attach listeners 1 lần
-    if (!_listenersAttached) {
-      _listenersAttached = true;
+    _socket!.onConnect((_) {
+      debugPrint('🟢 SOCKET CONNECTED: id=${_socket!.id}');
+      onConnected?.call();
+    });
 
-      _socket!.onConnect((_) {
-        debugPrint('🟢 SOCKET CONNECTED: id=${_socket!.id}');
-        onConnected?.call();
-      });
+    _socket!.onDisconnect((_) => debugPrint('🔴 SOCKET DISCONNECTED'));
+    _socket!.onConnectError((err) => debugPrint('❌ CONNECT ERROR: $err'));
+    _socket!.onError((err) => debugPrint('❌ SOCKET ERROR: $err'));
 
-      _socket!.onDisconnect((_) {
-        debugPrint('🔴 SOCKET DISCONNECTED');
-      });
-
-      _socket!.onConnectError((err) {
-        debugPrint('❌ SOCKET CONNECT ERROR: $err');
-      });
-
-      _socket!.onError((err) {
-        debugPrint('❌ SOCKET ERROR: $err');
-      });
-
-      _socket!.onReconnect((_) {
-        debugPrint('🟡 SOCKET RECONNECTED');
-      });
-
-      _socket!.onReconnectAttempt((_) {
-        debugPrint('🟠 SOCKET RECONNECT ATTEMPT...');
-      });
-    }
+    _socket!.connect();
   }
 
   void joinConversation(String conversationId, String userId) {
-    if (!isConnected) {
-      debugPrint('⚠️ Cannot join, socket not connected');
-      return;
-    }
-
-    debugPrint('👥 EMIT join_conversation: userId=$userId | room=$conversationId');
-
-    _socket!.emit('join_conversation', {
-      'conversationId': conversationId,
-      'userId': userId,
-    });
+    if (!isConnected) return;
+    _socket!.emit('join_conversation', {'conversationId': conversationId, 'userId': userId});
   }
 
   void sendMessage(String conversationId, String senderId, String content) {
-    if (!isConnected) {
-      debugPrint('⚠️ Cannot send, socket not connected');
-      return;
-    }
-
-    debugPrint('📤 EMIT send_message: sender=$senderId | room=$conversationId | content=$content');
-
+    if (!isConnected) return;
     _socket!.emit('send_message', {
       'conversationId': conversationId,
       'senderId': senderId,
       'content': content,
+      'type': 'text',
     });
   }
 
-  void onNewMessage(void Function(dynamic) handler) {
-    _socket?.on('new_message', handler);
+  // ✅ typing
+  void typingStart(String conversationId, String userId) {
+    if (!isConnected) return;
+    _socket!.emit('typing_start', {'conversationId': conversationId, 'userId': userId});
   }
 
-  void offNewMessage() {
-    _socket?.off('new_message');
+  void typingStop(String conversationId, String userId) {
+    if (!isConnected) return;
+    _socket!.emit('typing_stop', {'conversationId': conversationId, 'userId': userId});
   }
 
-  // ✅ nếu muốn đóng hẳn socket khi logout/app exit
+  // ✅ status
+  void markDelivered(String conversationId, String userId, String messageId) {
+    if (!isConnected) return;
+    _socket!.emit('message_delivered', {
+      'conversationId': conversationId,
+      'userId': userId,
+      'messageId': messageId,
+    });
+  }
+
+  void markSeen(String conversationId, String userId, String messageId) {
+    if (!isConnected) return;
+    _socket!.emit('message_seen', {
+      'conversationId': conversationId,
+      'userId': userId,
+      'messageId': messageId,
+    });
+  }
+
+  // listeners
+  void onNewMessage(void Function(dynamic) handler) => _socket?.on('new_message', handler);
+  void offNewMessage() => _socket?.off('new_message');
+
+  void onTyping(void Function(dynamic) handler) => _socket?.on('typing', handler);
+  void offTyping() => _socket?.off('typing');
+
+  void onMessageStatus(void Function(dynamic) handler) => _socket?.on('message_status', handler);
+  void offMessageStatus() => _socket?.off('message_status');
+
   void dispose() {
     _socket?.dispose();
     _socket = null;
-    _listenersAttached = false;
   }
 }

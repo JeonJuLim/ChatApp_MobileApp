@@ -1,61 +1,77 @@
 import {
   WebSocketGateway,
-  WebSocketServer,
   SubscribeMessage,
   MessageBody,
-  ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  ConnectedSocket,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Socket, Server } from 'socket.io';
 import { SocketService } from './socket.service';
 
 @WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
-  transports: ['websocket', 'polling'], // ✅ BẮT BUỘC
+  cors: { origin: '*', transports: ['websocket'] },
 })
-export class SocketGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
-  @WebSocketServer()
-  server: Server;
-
+export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private readonly socketService: SocketService) {}
 
   handleConnection(client: Socket) {
-    console.log('🟢 SOCKET CONNECTED:', client.id);
+    console.log('🟢 Client connected:', client.id);
   }
 
   handleDisconnect(client: Socket) {
-    console.log('🔴 SOCKET DISCONNECTED:', client.id);
+    console.log('🔴 Client disconnected:', client.id);
   }
 
-  // JOIN ROOM
   @SubscribeMessage('join_conversation')
-  handleJoin(
+  async handleJoinConversation(
     @MessageBody() data: { conversationId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(data.conversationId);
-    console.log(
-      `👥 ${data.userId} joined room ${data.conversationId}`,
-    );
+    return this.socketService.joinConversation(client, data);
   }
 
-  // SEND MESSAGE
   @SubscribeMessage('send_message')
-  handleMessage(
+  async handleSendMessage(
     @MessageBody()
-    data: { conversationId: string; senderId: string; content: string },
+    data: { conversationId: string; senderId: string; content: string; type?: string },
+    @ConnectedSocket() client: Socket,
   ) {
-    console.log(
-      `📩 ${data.senderId} -> ${data.conversationId}: ${data.content}`,
-    );
+    return this.socketService.sendMessage(client, data);
+  }
 
-    this.server
-      .to(data.conversationId)
-      .emit('new_message', data);
+  // ✅ TYPING START
+  @SubscribeMessage('typing_start')
+  async typingStart(
+    @MessageBody() data: { conversationId: string; userId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    return this.socketService.typingStart(client, data);
+  }
+
+  // ✅ TYPING STOP
+  @SubscribeMessage('typing_stop')
+  async typingStop(
+    @MessageBody() data: { conversationId: string; userId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    return this.socketService.typingStop(client, data);
+  }
+
+  // ✅ SEEN / DELIVERED
+  @SubscribeMessage('message_seen')
+  async messageSeen(
+    @MessageBody() data: { conversationId: string; userId: string; messageId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    return this.socketService.messageSeen(client, data);
+  }
+
+  @SubscribeMessage('message_delivered')
+  async messageDelivered(
+    @MessageBody() data: { conversationId: string; userId: string; messageId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    return this.socketService.messageDelivered(client, data);
   }
 }

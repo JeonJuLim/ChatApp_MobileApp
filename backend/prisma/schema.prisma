@@ -132,7 +132,7 @@ model Message {
 // ===========================
 model MessageStatus {
   id        String   @id @default(uuid())
-  status    String // sent | delivered | seen
+  status    String
   updatedAt DateTime @updatedAt
 
   messageId String
@@ -140,6 +140,8 @@ model MessageStatus {
 
   message Message @relation(fields: [messageId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId], name: "messageId_userId")
 }
 
 // ===========================
