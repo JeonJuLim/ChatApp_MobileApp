@@ -8,20 +8,32 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+  final String? userId = prefs.getString('userId');
 
-  runApp(MyApp(isLoggedIn: isLoggedIn));
+  runApp(MyApp(
+    isLoggedIn: isLoggedIn,
+    userId: userId,
+  ));
 }
 
 class MyApp extends StatelessWidget {
   final bool isLoggedIn;
+  final String? userId;
 
-  const MyApp({super.key, required this.isLoggedIn});
+  const MyApp({
+    super.key,
+    required this.isLoggedIn,
+    required this.userId,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: isLoggedIn ? const ChatListPage() : const WelcomePage(),
+      home: isLoggedIn && userId != null
+          ? ChatListPage(myUserId: userId!)
+          : const WelcomePage(),
     );
   }
 }
+

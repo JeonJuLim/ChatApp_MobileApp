@@ -339,7 +339,7 @@ class _OtpPageState extends State<OtpPage> {
     // Đi tới ChatListPage và xoá hết stack trước đó (không quay lại login nữa)
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ChatListPage()),
+      MaterialPageRoute(builder: (_) => const ChatListPage(myUserId: '',)),
           (route) => false,
     );
   }

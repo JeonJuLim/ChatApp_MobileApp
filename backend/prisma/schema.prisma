@@ -140,6 +140,7 @@ model MessageStatus {
 
   message Message @relation(fields: [messageId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
+   @@unique([messageId, userId], name: "messageId_userId")
 }
 
 // ===========================
