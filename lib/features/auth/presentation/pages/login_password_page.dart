@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
+import 'package:minichatappmobile/features/auth/data/auth_api.dart';
+import 'package:minichatappmobile/features/auth/data/auth_storage.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
 
 class LoginPasswordPage extends StatefulWidget {
   const LoginPasswordPage({super.key});
@@ -10,11 +13,14 @@ class LoginPasswordPage extends StatefulWidget {
 }
 
 class _LoginPasswordPageState extends State<LoginPasswordPage> {
-  final TextEditingController _phoneOrEmailController =
-  TextEditingController();
+  final TextEditingController _phoneOrEmailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  final _api = AuthApi();
+  final _storage = AuthStorage();
+
   bool _obscurePassword = true;
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -23,21 +29,59 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
     super.dispose();
   }
 
-  void _onLogin() {
-    final id = _phoneOrEmailController.text.trim();
+  String _normalizeIdentifier(String raw) {
+    final s = raw.trim();
+
+    // Nếu nhập kiểu 090... => đổi sang +84... (phù hợp seed +8490...)
+    if (RegExp(r'^0\d{9}$').hasMatch(s)) {
+      return '+84${s.substring(1)}';
+    }
+
+    // Nếu nhập 84xxxxxxxxx => đổi thành +84...
+    if (RegExp(r'^84\d{9}$').hasMatch(s)) {
+      return '+$s';
+    }
+
+    return s; // email / username / +84...
+  }
+
+  Future<void> _onLogin() async {
+    if (_loading) return;
+
+    final rawId = _phoneOrEmailController.text;
     final password = _passwordController.text;
 
-    if (id.isEmpty || password.isEmpty) {
+    if (rawId.trim().isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập đầy đủ tài khoản và mật khẩu'),
-        ),
+        const SnackBar(content: Text('Vui lòng nhập đầy đủ tài khoản và mật khẩu')),
       );
       return;
     }
 
-    // TODO: gọi API đăng nhập bằng mật khẩu
-    // Nếu thành công: lưu token, chuyển sang ChatListPage
+    final identifier = _normalizeIdentifier(rawId);
+
+    setState(() => _loading = true);
+    try {
+      final resp = await _api.loginWithPassword(
+        identifier: identifier,
+        password: password,
+      );
+
+      await _storage.saveLogin(resp.accessToken);
+
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const ChatListPage()),
+            (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -79,30 +123,22 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.white,
-                  hintText: 'Nhập số điện thoại hoặc email',
+                  hintText: 'Nhập số điện thoại / email / username',
                   hintStyle: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 15,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide:
-                    const BorderSide(color: AppColors.primarySoft),
+                    borderSide: const BorderSide(color: AppColors.primarySoft),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.4,
-                    ),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
               const Text(
                 'Mật khẩu',
@@ -124,38 +160,24 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                     color: AppColors.textSecondary,
                     fontSize: 15,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide:
-                    const BorderSide(color: AppColors.primarySoft),
+                    borderSide: const BorderSide(color: AppColors.primarySoft),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.4,
-                    ),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
+                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                       color: AppColors.textSecondary,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
               ),
-
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
@@ -172,24 +194,24 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
                   ),
                 ),
               ),
-
               const Spacer(),
-
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _onLogin,
-                  child: const Text(
+                  onPressed: _loading ? null : _onLogin,
+                  child: _loading
+                      ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                      : const Text(
                     'ĐĂNG NHẬP',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-
               const Center(
                 child: Text(
                   'Hoặc quay lại đăng nhập bằng OTP',

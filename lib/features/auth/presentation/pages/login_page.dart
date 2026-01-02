@@ -148,6 +148,13 @@ class _LoginPageState extends State<LoginPage> {
       );
       return;
     }
+    if (_phoneController.text.trim().length != 10 ||
+        !RegExp(r'^\d{10}$').hasMatch(_phoneController.text.trim())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Số điện thoại không hợp lệ!')),
+      );
+      return;
+    }
 
     // TODO: validate thêm (độ dài, regex) và gọi API gửi OTP
     Navigator.of(context).push(
