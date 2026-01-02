@@ -7,6 +7,10 @@ import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_p
 import 'package:minichatappmobile/features/auth/presentation/pages/settings_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/friends_tab.dart';
 
+// ✅ ADD
+import 'package:minichatappmobile/core/network/app_dio.dart';
+import 'package:minichatappmobile/features/groups/presentation/pages/group_list_page.dart';
+
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
 
@@ -69,8 +73,6 @@ class _ChatListPageState extends State<ChatListPage> {
         child: Column(
           children: [
             Expanded(child: _buildTabBody()),
-
-            // ===== BOTTOM NAV (ăn theme) =====
             Container(
               decoration: BoxDecoration(
                 color: context.surface,
@@ -117,15 +119,17 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  /// ✅ FIX: thêm case 1 cho FriendsTab
   Widget _buildTabBody() {
     switch (_currentTabIndex) {
       case 0:
         return _buildChatTab();
       case 1:
-        return const FriendsTab(); // ✅ BẠN BÈ
+        return const FriendsTabPage();
+      case 2:
+      // ✅ CỘNG ĐỒNG -> GROUP
+        return GroupListPage(dio: AppDio.instance);
       case 3:
-        return const SettingsPage(); // ✅ CÀI ĐẶT
+        return const SettingsPage();
       default:
         return Center(
           child: Text(
@@ -140,8 +144,6 @@ class _ChatListPageState extends State<ChatListPage> {
     return Column(
       children: [
         const SizedBox(height: 8),
-
-        // ===== TOP BAR =====
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -191,10 +193,8 @@ class _ChatListPageState extends State<ChatListPage> {
             ],
           ),
         ),
-
         const SizedBox(height: 16),
 
-        // ===== SEARCH BAR (ăn theme) =====
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Container(
@@ -221,10 +221,7 @@ class _ChatListPageState extends State<ChatListPage> {
                       hintText: 'Tìm kiếm...',
                       hintStyle: TextStyle(color: context.subtext, fontSize: 14),
                       border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                   ),
                 ),
@@ -232,19 +229,12 @@ class _ChatListPageState extends State<ChatListPage> {
                   height: 32,
                   width: 32,
                   margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(
-                    color: context.primary,
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: context.primary, shape: BoxShape.circle),
                   child: const Icon(Icons.search, size: 18, color: Colors.white),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: Icon(
-                    Icons.notifications_none,
-                    size: 20,
-                    color: context.subtext,
-                  ),
+                  child: Icon(Icons.notifications_none, size: 20, color: context.subtext),
                 ),
               ],
             ),
@@ -253,7 +243,6 @@ class _ChatListPageState extends State<ChatListPage> {
 
         const SizedBox(height: 16),
 
-        // ===== LIST CHATS =====
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -397,9 +386,7 @@ class _ConversationTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                conversation.isMuted
-                    ? Icons.notifications_off_outlined
-                    : Icons.notifications_active_outlined,
+                conversation.isMuted ? Icons.notifications_off_outlined : Icons.notifications_active_outlined,
                 size: 18,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -464,15 +451,11 @@ class _ConversationTile extends StatelessWidget {
                       ? const Icon(Icons.group, size: 22, color: Colors.white)
                       : Text(
                     _initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,15 +465,10 @@ class _ConversationTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             conversation.name,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: context.text,
-                            ),
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.text),
                           ),
                         ),
-                        if (conversation.isPinned)
-                          Icon(Icons.push_pin, size: 16, color: context.primary),
+                        if (conversation.isPinned) Icon(Icons.push_pin, size: 16, color: context.primary),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -505,16 +483,11 @@ class _ConversationTile extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(width: 8),
-
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    conversation.timeLabel,
-                    style: AppTextStyles.legalText.copyWith(color: context.subtext),
-                  ),
+                  Text(conversation.timeLabel, style: AppTextStyles.legalText.copyWith(color: context.subtext)),
                   const SizedBox(height: 6),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -526,10 +499,7 @@ class _ConversationTile extends StatelessWidget {
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: BoxDecoration(
-                            color: context.primary,
-                            shape: BoxShape.circle,
-                          ),
+                          decoration: BoxDecoration(color: context.primary, shape: BoxShape.circle),
                         ),
                       ],
                     ],
