@@ -6,7 +6,7 @@ import 'package:minichatappmobile/core/config/app_config.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_page.dart';
-
+import 'package:minichatappmobile/features/auth/presentation/pages/user_profile_page.dart';
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
 
@@ -57,15 +57,27 @@ class _ChatListPageState extends State<ChatListPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.secondary,
-                    child: const Icon(
-                      Icons.person_outline,
-                      color: Colors.white,
+                  InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const UserProfilePage(),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppColors.secondary,
+                      child: const Icon(
+                        Icons.person_outline,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
+
                   const Spacer(),
+
                   CircleAvatar(
                     radius: 16,
                     backgroundColor: AppColors.mint,

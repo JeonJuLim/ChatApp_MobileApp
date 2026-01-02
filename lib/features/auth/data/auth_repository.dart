@@ -7,12 +7,42 @@ class AuthRepository {
 
   AuthRepository(this.api, this.storage);
 
-  Future<void> loginEmail(String email, String password) async {
+  Future<void> loginWithPassword({
+    required String identifier,
+    required String password,
+  }) async {
     final res = await api.dio.post(
-      '/auth/login-email',
-      data: {'email': email, 'password': password},
+      '/auth/login/password',
+      data: {
+        'identifier': _normalizeIdentifier(identifier),
+        'password': password,
+      },
     );
 
-    await storage.save(res.data['accessToken']);
+    final data = res.data;
+    final token = (data is Map) ? data['accessToken']?.toString() : null;
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Server không trả accessToken');
+    }
+
+    await storage.save(token);
+  }
+
+  // ===== THÊM HÀM NÀY =====
+  String _normalizeIdentifier(String raw) {
+    final s = raw.trim();
+
+    // 0xxxxxxxxx -> +84xxxxxxxxx
+    if (RegExp(r'^0\d{9}$').hasMatch(s)) {
+      return '+84${s.substring(1)}';
+    }
+
+    // 84xxxxxxxxx -> +84xxxxxxxxx
+    if (RegExp(r'^84\d{9}$').hasMatch(s)) {
+      return '+$s';
+    }
+
+    return s; // email | username | +84...
   }
 }

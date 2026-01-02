@@ -264,7 +264,24 @@ class _LoginPageState extends State<LoginPage> {
               ),
 
               const Spacer(),
-
+// ===== Đăng nhập bằng email =====
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LoginPasswordPage(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Đăng nhập bằng email',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
               // Nút TIẾP TỤC
               SizedBox(
                 height: 52,

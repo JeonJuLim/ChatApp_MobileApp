@@ -22,4 +22,8 @@ export class AuthController {
   loginGoogle(@Body() dto: GoogleLoginDto) {
     return this.authService.loginGoogle(dto);
   }
+ @Post('login/password')
+  loginPassword(@Body() body: { identifier: string; password: string }) {
+    return this.authService.loginWithPassword(body.identifier, body.password);
+  }
 }

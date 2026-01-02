@@ -125,6 +125,7 @@ model Message {
   replies       Message[]       @relation("reply")
   messageStatus MessageStatus[]
   attachments   Attachment[]
+
 }
 
 // ===========================
@@ -143,6 +144,7 @@ model MessageStatus {
 
   @@unique([messageId, userId], name: "messageId_userId")
 }
+
 
 // ===========================
 // ATTACHMENTS (MinIO files)

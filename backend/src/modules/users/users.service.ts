@@ -11,6 +11,9 @@ import { PrismaService } from '../../database/prisma.service';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ==================================================
+  // UPDATE PHONE (ĐÃ CÓ – GIỮ NGUYÊN)
+  // ==================================================
   async updatePhone(userId: string, phoneE164?: string | null) {
     if (!userId) {
       throw new BadRequestException('Missing userId');
@@ -53,5 +56,48 @@ export class UsersService {
       }
       throw e;
     }
+  }
+
+  // ==================================================
+  // GET ME (PROFILE)
+  // ==================================================
+  async getMe(userId: string) {
+    if (!userId) {
+      throw new BadRequestException('Missing userId');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        avatarUrl: true,
+        status: true,
+
+        authProvider: true,
+        googleSub: true,
+
+        phoneE164: true,
+        phoneVerifiedAt: true,
+        phoneVerifyRequired: true,
+
+        email: true,
+        emailVerifiedAt: true,
+
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      ...user,
+      phoneVerified: !!user.phoneVerifiedAt,
+      emailVerified: !!user.emailVerifiedAt,
+    };
   }
 }

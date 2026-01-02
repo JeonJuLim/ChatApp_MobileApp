@@ -1,36 +1,56 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
+
 const prisma = new PrismaClient();
 
 async function main() {
-  // ===== USERS =====
+  const password = 'Test@12345';
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  // ===== USER 1: tram1@gmail.com =====
   const u1 = await prisma.user.upsert({
-    where: { id: 'u1' },
+    where: { email: 'tram1@gmail.com' },
     update: {},
     create: {
-      id: 'u1',
-      username: 'u1',
-      fullName: 'User One',
-      authProvider: 'phone',
+      username: 'tram1',
+      fullName: 'Tram 1',
+      email: 'tram1@gmail.com',
+      emailVerifiedAt: new Date(),
+
+      authProvider: 'password',
+      passwordHash,
+
+      phoneVerifyRequired: false,
+      status: 'online',
+      avatarUrl: 'https://i.pravatar.cc/300?img=15',
     },
   });
 
+  // ===== USER 2: user test =====
   const u2 = await prisma.user.upsert({
-    where: { id: 'u2' },
+    where: { username: 'user2' },
     update: {},
     create: {
-      id: 'u2',
-      username: 'u2',
+      username: 'user2',
       fullName: 'User Two',
-      authProvider: 'phone',
+      email: 'user2@test.com',
+      emailVerifiedAt: new Date(),
+
+      authProvider: 'password',
+      passwordHash,
+
+      phoneVerifyRequired: false,
+      status: 'offline',
+      avatarUrl: 'https://i.pravatar.cc/300?img=32',
     },
   });
 
-  // ===== CONVERSATION =====
+  // ===== CONVERSATION (direct) =====
   const c1 = await prisma.conversation.upsert({
-    where: { id: 'c1' },
+    where: { id: 'seed-conv-1' },
     update: {},
     create: {
-      id: 'c1',
+      id: 'seed-conv-1',
       type: 'direct',
       createdBy: u1.id,
       members: {
@@ -47,12 +67,15 @@ async function main() {
     data: {
       conversationId: c1.id,
       senderId: u1.id,
-      content: 'Hello từ u1',
+      content: 'Hello từ tram1@gmail.com',
       type: 'text',
     },
   });
 
   console.log('✅ Seed OK');
+  console.log('Login test:');
+  console.log('Email:', 'tram1@gmail.com');
+  console.log('Password:', password);
 }
 
 main()

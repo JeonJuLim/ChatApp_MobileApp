@@ -1,17 +1,14 @@
-import { Body, Controller, Patch, Req, UseGuards } from "@nestjs/common";
-import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
-import { UsersService } from "./users.service";
-import { UpdatePhoneDto } from "./dto/update-phone.dto";
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { UsersService } from './users.service';
+import { JwtAuthGuard } from '../auth/jwt.guard';
 
-@Controller("users")
+@Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @UseGuards(JwtAuthGuard)
-  @Patch("me/phone")
-  updatePhone(@Req() req: any, @Body() dto: UpdatePhoneDto) {
-    console.log("REQ.USER =", req.user); // ✅ log
-    return this.usersService.updatePhone(req.user?.sub, dto.phone);
+  @Get('me')
+  me(@Req() req: any) {
+    return this.usersService.getMe(req.user.sub);
   }
 }
-
