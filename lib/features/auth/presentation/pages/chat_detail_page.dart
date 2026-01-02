@@ -6,6 +6,8 @@ import 'package:minichatappmobile/core/config/app_config.dart';
 import 'package:minichatappmobile/core/socket/socket_service.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
+import 'package:http/http.dart' as http;
+
 
 class ChatDetailPage extends StatefulWidget {
   final String title;
@@ -56,13 +58,20 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   bool _otherTyping = false;
   Timer? _typingDebounce;
+  String _getUserName(String userId) {
+    return 'User ${userId.substring(0, 4)}'; // TODO: map thật
+  }
 
+  String _getAvatarUrl(String userId) {
+    return 'https://i.pravatar.cc/150?u=$userId';
+  }
   /* =========================
      INIT
   ========================= */
   @override
   void initState() {
     super.initState();
+    _loadHistory();
 
     debugPrint(
       '🧩 ChatDetail INIT | user=${widget.myUserId} | room=${widget.conversationId}',
@@ -80,6 +89,42 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
     _initSocketListeners();
   }
+  Future<void> _loadHistory() async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          '${AppConfig.apiBaseUrl}/messages/${widget.conversationId}',
+        ),
+      );
+
+      if (res.statusCode != 200) {
+        throw Exception('Load messages failed');
+      }
+
+      final List list = jsonDecode(res.body);
+
+      setState(() {
+        _messages.clear();
+        for (final m in list) {
+          _messages.add(
+            _Message(
+              id: m['id'],
+              text: m['content'] ?? '',
+              senderId: m['senderId'],
+              createdAt: DateTime.parse(m['createdAt']),
+            ),
+          );
+          _status[m['id']] = m['status'] ?? 'sent';
+        }
+      });
+
+      _scrollToBottom();
+      _markAllSeen();
+    } catch (e) {
+      debugPrint('❌ Load history error: $e');
+    }
+  }
+
 
   void _initSocketListeners() {
     /* ---------- NEW MESSAGE ---------- */
@@ -235,68 +280,126 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               itemBuilder: (_, i) {
                 final m = _messages[i];
                 final isMe = m.senderId == widget.myUserId;
+                final isGroup = widget.isGroup;
 
-                return Align(
-                  alignment:
-                  isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                      isMe ? AppColors.primary : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment:
-                      isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          m.text,
-                          style: AppTextStyles.legalText.copyWith(
-                            color: isMe
-                                ? Colors.white
-                                : AppColors.textPrimary,
-                          ),
+                final prev = i > 0 ? _messages[i - 1] : null;
+
+                final showSenderInfo =
+                    isGroup &&
+                        !isMe &&
+                        (prev == null || prev.senderId != m.senderId);
+
+
+                final isLastMyMessage =
+                    isMe &&
+                        i == _messages.lastIndexWhere(
+                              (msg) => msg.senderId == widget.myUserId,
+                        );
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment:
+                    isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                    children: [
+                      // ===== AVATAR (chỉ người khác & chỉ khi showSenderInfo) =====
+                      if (!isMe)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8, top: 2),
+                          child: showSenderInfo
+                              ? CircleAvatar(
+                            radius: 16,
+                            backgroundImage:
+                            NetworkImage(_getAvatarUrl(m.senderId)),
+                          )
+                              : const SizedBox(width: 32), // giữ alignment
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
+
+                      // ===== MESSAGE BUBBLE =====
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment:
+                          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _formatTime(m.createdAt),
-                              style: AppTextStyles.legalText.copyWith(
-                                fontSize: 10,
-                                color: isMe
-                                    ? Colors.white70
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                            if (isMe) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                _status[m.id] == 'seen'
-                                    ? '✓✓'
-                                    : _status[m.id] == 'delivered'
-                                    ? '✓✓'
-                                    : '✓',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _status[m.id] == 'seen'
-                                      ? Colors.blue
-                                      : Colors.white70,
+                            // ===== USER NAME (group + showSenderInfo) =====
+                            if (showSenderInfo)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  _getUserName(m.senderId),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                               ),
-                            ],
+
+                            // ===== BUBBLE =====
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isMe ? AppColors.primary : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                crossAxisAlignment:
+                                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    m.text,
+                                    style: AppTextStyles.legalText.copyWith(
+                                      fontSize: 16,
+                                      height: 1.35,
+                                      color:
+                                      isMe ? Colors.white : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _formatTime(m.createdAt),
+                                        style: AppTextStyles.legalText.copyWith(
+                                          fontSize: 10,
+                                          color: isMe
+                                              ? Colors.white70
+                                              : AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      if (isLastMyMessage) ...[
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _status[m.id] == 'seen'
+                                              ? '✓✓'
+                                              : _status[m.id] == 'delivered'
+                                              ? '✓✓'
+                                              : '✓',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: _status[m.id] == 'seen'
+                                                ? Colors.blue
+                                                : Colors.white70,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
+
               },
             ),
           ),
@@ -308,8 +411,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'đang nhập...',
-                  style: TextStyle(fontSize: 12),
+                  'Đang nhập...',
+                  style: TextStyle(fontSize: 20),
                 ),
               ),
             ),
@@ -341,7 +444,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                             });
                       },
                       decoration: const InputDecoration(
-                        hintText: 'Nhắn tin...',
+                        hintText: 'Tin nhắn',
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         border: InputBorder.none,
                       ),
                     ),

@@ -48,10 +48,17 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
     return s; // email | username | +84...
   }
 
-  Future<void> _saveTokenAndGoChatList(String token) async {
+  Future<void> _saveTokenAndGoChatList(
+      String token,
+      Map<String, dynamic> user,
+      ) async {
     final prefs = await SharedPreferences.getInstance();
+
     await prefs.setBool('isLoggedIn', true);
     await prefs.setString('accessToken', token);
+    await prefs.setString('userId', user['id']); // ⭐ QUAN TRỌNG
+    await prefs.setString('username', user['username'] ?? '');
+    await prefs.setString('email', user['email'] ?? '');
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -59,6 +66,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
           (route) => false,
     );
   }
+
 
   Future<void> _onLogin() async {
     if (_loading) return;
@@ -68,7 +76,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
 
     if (rawId.trim().isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập đầy đủ tài khoản và mật khẩu')),
+        const SnackBar(content: Text('Vui lòng nhập đầy đủ')),
       );
       return;
     }
@@ -78,42 +86,44 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
     setState(() => _loading = true);
 
     try {
+      debugPrint('➡️ LOGIN REQUEST');
+      debugPrint('identifier = $identifier');
+      debugPrint('password   = $password');
+
       final res = await _dio.post(
         "/auth/login/password",
-        data: {"identifier": identifier, "password": password},
+        data: {
+          "identifier": identifier,
+          "password": password,
+        },
       );
 
-      // Debug nhanh nếu cần:
-      // print('STATUS: ${res.statusCode}');
-      // print('BODY: ${res.data}');
+      debugPrint('✅ STATUS: ${res.statusCode}');
+      debugPrint('✅ BODY: ${res.data}');
 
       final data = res.data;
-      final token = (data is Map) ? data["accessToken"]?.toString() : null;
+      final token = data['accessToken'];
+      final user  = data['user'];
 
-      if (token == null || token.isEmpty) {
-        throw Exception("Server không trả accessToken");
+      if (token == null) {
+        throw Exception("Không có accessToken");
       }
 
-      await _saveTokenAndGoChatList(token);
+      await _saveTokenAndGoChatList(token,user);
     } on DioException catch (e) {
-      final resp = e.response?.data;
-      final msg = (resp is Map && resp["message"] != null)
-          ? resp["message"].toString()
-          : (e.message ?? "Unknown error");
+      debugPrint('❌ LOGIN ERROR');
+      debugPrint('STATUS: ${e.response?.statusCode}');
+      debugPrint('BODY: ${e.response?.data}');
+      debugPrint('MSG: ${e.message}');
 
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đăng nhập thất bại: $msg")),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đăng nhập thất bại: $e")),
+        SnackBar(content: Text("Login fail: ${e.response?.data ?? e.message}")),
       );
     } finally {
-      if (mounted) setState(() => _loading = false);
+      setState(() => _loading = false);
     }
   }
+
 
   @override
   void dispose() {

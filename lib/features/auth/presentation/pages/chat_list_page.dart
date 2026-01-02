@@ -7,8 +7,10 @@ import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/user_profile_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
+
 
   @override
   State<ChatListPage> createState() => _ChatListPageState();
@@ -17,20 +19,61 @@ class ChatListPage extends StatefulWidget {
 class _ChatListPageState extends State<ChatListPage> {
   final TextEditingController _searchController = TextEditingController();
   int _currentTabIndex = 0;
+  String? _myUserId;
+  Future<List<dynamic>>? _conversationFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserId();
+  }
+  Future<void> _loadUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString('userId');
+
+    debugPrint('👤 Logged userId = $uid');
+
+    if (!mounted) return;
+
+    setState(() {
+      _myUserId = uid;
+      if (uid != null) {
+        _conversationFuture = fetchConversations();
+      }
+    });
+  }
+
 
   // =========================
   // REST: FETCH CONVERSATIONS
   // =========================
   Future<List<dynamic>> fetchConversations() async {
+    if (_myUserId == null) return [];
+
     final res = await http.get(
-      Uri.parse('${AppConfig.apiBaseUrl}/conversations?userId=u101'),
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/conversations?userId=$_myUserId',
+      ),
     );
 
     debugPrint('STATUS: ${res.statusCode}');
     debugPrint('BODY: ${res.body}');
 
-    return jsonDecode(res.body);
+    if (res.statusCode != 200) {
+      throw Exception('API error');
+    }
+
+    final data = jsonDecode(res.body);
+    if (data is! List) {
+      throw Exception('Invalid response format');
+    }
+
+    return data;
   }
+
+
+
+
 
   @override
   void dispose() {
@@ -43,6 +86,11 @@ class _ChatListPageState extends State<ChatListPage> {
   // =========================
   @override
   Widget build(BuildContext context) {
+    if (_myUserId == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -121,22 +169,19 @@ class _ChatListPageState extends State<ChatListPage> {
             // =========================
             Expanded(
               child: FutureBuilder<List<dynamic>>(
-                future: fetchConversations(),
+                future: _conversationFuture,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
                   }
 
                   if (snapshot.hasError) {
-                    return const Center(
+                    return Center(
                       child: Text('❌ Không tải được danh sách chat'),
                     );
                   }
 
-                  final conversations = snapshot.data!;
+                  final conversations = snapshot.data ?? [];
                   if (conversations.isEmpty) {
                     return const Center(
                       child: Text('Chưa có cuộc trò chuyện'),
@@ -169,7 +214,7 @@ class _ChatListPageState extends State<ChatListPage> {
                               builder: (_) => ChatDetailPage(
                                 title: title,
                                 conversationId: id,
-                                myUserId: 'u1',
+                                myUserId: _myUserId!,
                                 isGroup: isGroup,
                               ),
                             ),

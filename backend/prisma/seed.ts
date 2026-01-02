@@ -40,10 +40,60 @@ async function main() {
       passwordHash,
 
       phoneVerifyRequired: false,
-      status: 'offline',
+      status: 'online',
       avatarUrl: 'https://i.pravatar.cc/300?img=32',
     },
   });
+const u3 = await prisma.user.upsert({
+  where: { email: 'MaiLinh@test.com' },
+  update: {},
+  create: {
+    username: 'Mai Linh',
+    fullName: 'Mai Linh',
+    email: 'MaiLinh@test.com',
+    emailVerifiedAt: new Date(),
+    authProvider: 'password',
+    passwordHash,
+    phoneVerifyRequired: false,
+    status: 'online',
+    avatarUrl: 'https://i.pravatar.cc/300?img=12',
+  },
+});
+
+const u4 = await prisma.user.upsert({
+  where: { email: 'LinhNga@test.com' },
+  update: {},
+  create: {
+    username: 'Linh Nga',
+    fullName: 'Linh Nga',
+    email: 'LinhNga@test.com',
+    emailVerifiedAt: new Date(),
+    authProvider: 'password',
+    passwordHash,
+    phoneVerifyRequired: false,
+    status: 'online',
+    avatarUrl: 'https://i.pravatar.cc/300?img=18',
+  },
+});
+await prisma.conversation.upsert({
+  where: { id: 'seed-group-1' },
+  update: {},
+  create: {
+    id: 'seed-group-1',
+    type: 'group',
+    name: 'Nhóm nấu xói',
+    createdBy: u1.id,
+    members: {
+      create: [
+        { userId: u1.id, role: 'admin' },
+        { userId: u2.id, role: 'member' },
+        { userId: u3.id, role: 'member' },
+        { userId: u4.id, role: 'member' },
+      ],
+    },
+  },
+});
+
 
   // ===== CONVERSATION (direct) =====
   const c1 = await prisma.conversation.upsert({
@@ -71,6 +121,22 @@ async function main() {
       type: 'text',
     },
   });
+await prisma.message.createMany({
+  data: [
+    {
+      conversationId: 'seed-group-1',
+      senderId: u2.id,
+      content: 'Chào mọi người 👋',
+      type: 'text',
+    },
+    {
+      conversationId: 'seed-group-1',
+      senderId: u3.id,
+      content: 'Mình mới vào nhóm',
+      type: 'text',
+    },
+  ],
+});
 
   console.log('✅ Seed OK');
   console.log('Login test:');

@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import '../../data/user_profile.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/login_password_page.dart';
+
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -21,9 +23,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
     super.initState();
 
     _dio = Dio(BaseOptions(
-      // emulator:
+
       baseUrl: 'http://10.0.2.2:3001',
-      // máy thật: đổi sang http://172.16.1.105:3001
+
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {'Content-Type': 'application/json'},
@@ -50,6 +52,20 @@ class _UserProfilePageState extends State<UserProfilePage> {
     }
 
     return UserProfile.fromJson(res.data as Map<String, dynamic>);
+  }
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.remove('accessToken');
+    await prefs.remove('userId');
+    await prefs.remove('isLoggedIn');
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPasswordPage()),
+          (route) => false, // ❌ xoá toàn bộ stack
+    );
   }
 
   @override
@@ -108,6 +124,50 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 _infoCard('Hệ thống', [
                   _infoRow('Ngày tạo', '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}'),
                 ]),
+                const SizedBox(height: 32),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.logout),
+                    label: const Text(
+                      'Đăng xuất',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Đăng xuất'),
+                          content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Huỷ'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Đăng xuất'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (ok == true) {
+                        await _logout();
+                      }
+                    },
+                  ),
+                ),
+
               ],
             ),
           );
