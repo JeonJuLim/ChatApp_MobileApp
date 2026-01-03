@@ -8,6 +8,7 @@ import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/user_profile_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/settings_page.dart';
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
 
@@ -232,7 +233,17 @@ class _ChatListPageState extends State<ChatListPage> {
             // =========================
             BottomNavigationBar(
               currentIndex: _currentTabIndex,
-              onTap: (i) => setState(() => _currentTabIndex = i),
+              onTap: (i) async {
+                if (i == 3) {
+                  // ✅ Cài đặt -> chuyển sang SettingsPage
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsPage()),
+                  );
+                  return; // ✅ không đổi tab index
+                }
+
+                setState(() => _currentTabIndex = i);
+              },
               type: BottomNavigationBarType.fixed,
               selectedItemColor: AppColors.primary,
               unselectedItemColor: AppColors.textSecondary,

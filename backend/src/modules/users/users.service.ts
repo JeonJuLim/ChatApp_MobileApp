@@ -1,103 +1,40 @@
-// backend/src/modules/users/users.service.ts
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ==================================================
-  // UPDATE PHONE (ĐÃ CÓ – GIỮ NGUYÊN)
-  // ==================================================
-  async updatePhone(userId: string, phoneE164?: string | null) {
-    if (!userId) {
-      throw new BadRequestException('Missing userId');
+  async getMe(userId: string) {
+    return this.prisma.user.findUnique({ where: { id: userId } });
+  }
+
+  async isUsernameAvailable(raw: string) {
+    const u = (raw ?? '').trim();
+
+    if (!u) throw new BadRequestException('Missing username');
+
+    // Rule gợi ý: a-z 0-9 _ . , dài 3-20 (giống Instagram-lite)
+    const ok = /^[a-z0-9._]{3,20}$/i.test(u);
+    if (!ok) {
+      throw new BadRequestException(
+        'Username không hợp lệ (3-20 ký tự, chỉ chữ/số/._)',
+      );
     }
 
-    const normalized =
-      phoneE164 == null || String(phoneE164).trim() === ''
-        ? null
-        : String(phoneE164).trim();
-
     const exists = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: { username: u },
       select: { id: true },
     });
 
-    if (!exists) {
-      throw new NotFoundException('User not found');
-    }
-
-    try {
-      const user = await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          phoneE164: normalized,
-          phoneVerifiedAt: null, // reset OTP verify
-        },
-        select: {
-          id: true,
-          email: true,
-          phoneE164: true,
-          authProvider: true,
-        },
-      });
-
-      return { ok: true, user };
-    } catch (e: any) {
-      // Unique constraint (phoneE164)
-      if (e?.code === 'P2002') {
-        throw new ConflictException('Số điện thoại đã được sử dụng.');
-      }
-      throw e;
-    }
+    return { ok: true, username: u, available: !exists };
   }
 
-  // ==================================================
-  // GET ME (PROFILE)
-  // ==================================================
-  async getMe(userId: string) {
-    if (!userId) {
-      throw new BadRequestException('Missing userId');
-    }
-
-    const user = await this.prisma.user.findUnique({
+  async updateMeProfile(userId: string, dto: any) {
+    // bạn giữ logic update ở đây
+    return this.prisma.user.update({
       where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        fullName: true,
-        avatarUrl: true,
-        status: true,
-
-        authProvider: true,
-        googleSub: true,
-
-        phoneE164: true,
-        phoneVerifiedAt: true,
-        phoneVerifyRequired: true,
-
-        email: true,
-        emailVerifiedAt: true,
-
-        createdAt: true,
-        updatedAt: true,
-      },
+      data: dto,
     });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return {
-      ...user,
-      phoneVerified: !!user.phoneVerifiedAt,
-      emailVerified: !!user.emailVerifiedAt,
-    };
   }
 }

@@ -10,7 +10,7 @@ import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 
 import 'package:minichatappmobile/features/auth/presentation/pages/login_page.dart';
-import 'package:minichatappmobile/features/auth/presentation/pages/Register/register_phone_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/Register/register_email_page.dart';
 import 'package:minichatappmobile/features/home/home_page.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -282,11 +282,11 @@ class _WelcomePageState extends State<WelcomePage> {
                           return;
                         }
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const RegisterPhonePage()),
+                          MaterialPageRoute(builder: (_) => const RegisterEmailPage()),
                         );
                       },
                       child: Text(
-                        'Tiếp tục bằng số điện thoại',
+                        'Đăng ký tài khoản',
                         style: AppTextStyles.outlineButtonText,
                       ),
                     ),

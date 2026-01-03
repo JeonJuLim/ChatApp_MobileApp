@@ -7,6 +7,8 @@ import '../../data/user_profile.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/login_password_page.dart';
 
 
+
+
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
 
@@ -23,9 +25,13 @@ class _UserProfilePageState extends State<UserProfilePage> {
     super.initState();
 
     _dio = Dio(BaseOptions(
+//Máy ảo
+      //baseUrl: 'http://10.0.2.2:3001',
 
-      baseUrl: 'http://10.0.2.2:3001',
+      // emulator:
 
+      baseUrl: 'http://192.168.1.45:3001',
+      // máy thật: đổi sang http://172.16.1.105:3001
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {'Content-Type': 'application/json'},

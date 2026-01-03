@@ -4,7 +4,14 @@ import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'register_info_page.dart';
 
 class GenderPage extends StatefulWidget {
-  const GenderPage({super.key});
+  final String email;
+  final String password;
+
+  const GenderPage({
+    super.key,
+    required this.email,
+    required this.password,
+  });
 
   @override
   State<GenderPage> createState() => _GenderPageState();
@@ -23,7 +30,11 @@ class _GenderPageState extends State<GenderPage> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => RegisterInfoPage(gender: _selectedGender!),
+        builder: (_) => RegisterInfoPage(
+          email: widget.email,
+          password: widget.password,
+          gender: _selectedGender!,
+        ),
       ),
     );
   }
@@ -68,7 +79,7 @@ class _GenderPageState extends State<GenderPage> {
                     child: Container(
                       height: 3,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color: AppColors.primary,
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),

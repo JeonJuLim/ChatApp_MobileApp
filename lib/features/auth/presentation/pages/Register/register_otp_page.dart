@@ -18,11 +18,11 @@ class RegisterOtpPage extends StatelessWidget {
 
     void onContinue() {
       // TODO: verify OTP với backend
-      Navigator.of(context).push(
+    /*  Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => const GenderPage(),
         ),
-      );
+      );*/
     }
 
     return Scaffold(
@@ -108,6 +108,26 @@ class RegisterOtpPage extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  // Cho phép bỏ qua OTP → đi tiếp flow đăng ký
+                 /* Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const GenderPage(),
+                    ),
+                  );*/
+                },
+                child: const Text(
+                  'Bỏ qua',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
               const SizedBox(height: 12),
             ],
           ),

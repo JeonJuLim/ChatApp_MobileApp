@@ -28,6 +28,9 @@ model User {
   fullName     String
   avatarUrl    String?
   status       String?
+  gender       String?     // 'male' | 'female'
+  dob          DateTime?   // ngày sinh
+  area         String?     // tỉnh/thành
 
   // ===========================
   // AUTH SOURCE

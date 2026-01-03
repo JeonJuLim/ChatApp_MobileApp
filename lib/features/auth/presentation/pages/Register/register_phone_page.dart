@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
-import 'register_otp_page.dart';
 
 class RegisterPhonePage extends StatefulWidget {
   const RegisterPhonePage({super.key});
@@ -14,12 +13,12 @@ class _RegisterPhonePageState extends State<RegisterPhonePage> {
   final TextEditingController _phoneController = TextEditingController();
 
   final List<_CountryCode> _countries = const [
-    _CountryCode(name: 'Việt Nam',     flag: '🇻🇳', dialCode: '+84'),
-    _CountryCode(name: 'United States',flag: '🇺🇸', dialCode: '+1'),
-    _CountryCode(name: 'Japan',        flag: '🇯🇵', dialCode: '+81'),
-    _CountryCode(name: 'South Korea',  flag: '🇰🇷', dialCode: '+82'),
-    _CountryCode(name: 'Singapore',    flag: '🇸🇬', dialCode: '+65'),
-    _CountryCode(name: 'Thailand',     flag: '🇹🇭', dialCode: '+66'),
+    _CountryCode(name: 'Việt Nam', flag: '🇻🇳', dialCode: '+84'),
+    _CountryCode(name: 'United States', flag: '🇺🇸', dialCode: '+1'),
+    _CountryCode(name: 'Japan', flag: '🇯🇵', dialCode: '+81'),
+    _CountryCode(name: 'South Korea', flag: '🇰🇷', dialCode: '+82'),
+    _CountryCode(name: 'Singapore', flag: '🇸🇬', dialCode: '+65'),
+    _CountryCode(name: 'Thailand', flag: '🇹🇭', dialCode: '+66'),
   ];
 
   late _CountryCode _selectedCountry;
@@ -71,19 +70,22 @@ class _RegisterPhonePageState extends State<RegisterPhonePage> {
                   itemBuilder: (context, index) {
                     final c = _countries[index];
                     final selected = c.dialCode == _selectedCountry.dialCode;
+
                     return ListTile(
                       onTap: () {
                         setState(() => _selectedCountry = c);
                         Navigator.of(context).pop();
                       },
-                      leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
+                      leading:
+                      Text(c.flag, style: const TextStyle(fontSize: 22)),
                       title: Text(c.name),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             c.dialCode,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
+                            style:
+                            const TextStyle(fontWeight: FontWeight.w500),
                           ),
                           if (selected) ...[
                             const SizedBox(width: 8),
@@ -108,11 +110,10 @@ class _RegisterPhonePageState extends State<RegisterPhonePage> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Chưa hỗ trợ'),
           content: Text(
-            'Hiện tại hệ thống chỉ hỗ trợ tạo tài khoản với đầu số +84 (Việt Nam).\n\n'
+            'Hiện tại hệ thống chỉ hỗ trợ đầu số +84 (Việt Nam).\n\n'
                 'Đầu số bạn chọn: ${_selectedCountry.dialCode}',
           ),
           actions: [
@@ -133,14 +134,14 @@ class _RegisterPhonePageState extends State<RegisterPhonePage> {
       return;
     }
 
-    // TODO: validate & call API gửi OTP
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => RegisterOtpPage(
-          phoneNumber: _phoneController.text.trim(),
-        ),
+    // ✅ Không gọi OTP page nữa
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Hiện tại đăng ký bằng số điện thoại/OTP đang tạm tắt.'),
       ),
     );
+
+    // Nếu bạn muốn điều hướng sang trang khác thì thay đoạn SnackBar bằng Navigator.push(...)
   }
 
   @override
