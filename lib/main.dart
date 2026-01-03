@@ -8,6 +8,9 @@ import 'package:minichatappmobile/core/theme/theme_builder.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/welcome_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
 
+import 'package:minichatappmobile/features/friends/data/repositories/friends_repository.dart';
+import 'package:minichatappmobile/features/friends/presentation/providers/friends_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -16,11 +19,16 @@ void main() async {
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
   final appearance = AppAppearance();
-  await appearance.load(); // LOAD setting giao diện đã lưu
+  await appearance.load();
 
   runApp(
-    ChangeNotifierProvider.value(
-      value: appearance,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: appearance),
+        ChangeNotifierProvider(
+          create: (_) => FriendsProvider(FriendsRepositoryMock()),
+        ),
+      ],
       child: MyApp(isLoggedIn: isLoggedIn),
     ),
   );
@@ -37,13 +45,9 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
-      // APPLY THEME
       theme: ThemeBuilder.light(a),
       darkTheme: ThemeBuilder.dark(a),
       themeMode: a.themeMode,
-
-      // APPLY FONT SCALE
       builder: (context, child) {
         final scale = ThemeBuilder.textScale(a.fontScale);
         return MediaQuery(
@@ -53,7 +57,6 @@ class MyApp extends StatelessWidget {
           child: child!,
         );
       },
-
       home: isLoggedIn ? const ChatListPage() : const WelcomePage(),
     );
   }

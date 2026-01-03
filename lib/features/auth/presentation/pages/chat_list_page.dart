@@ -9,6 +9,7 @@ import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_p
 import 'package:minichatappmobile/features/auth/presentation/pages/user_profile_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/settings_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/friends_tab.dart';
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
 
@@ -234,12 +235,20 @@ class _ChatListPageState extends State<ChatListPage> {
             BottomNavigationBar(
               currentIndex: _currentTabIndex,
               onTap: (i) async {
+                // 👥 Bạn bè
+                if (i == 1) {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FriendsTab()),
+                  );
+                  return; // không đổi tab index
+                }
+
+                // ⚙️ Cài đặt
                 if (i == 3) {
-                  // ✅ Cài đặt -> chuyển sang SettingsPage
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const SettingsPage()),
                   );
-                  return; // ✅ không đổi tab index
+                  return; // không đổi tab index
                 }
 
                 setState(() => _currentTabIndex = i);
