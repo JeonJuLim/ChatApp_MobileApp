@@ -4,6 +4,7 @@ import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/login_password_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/forgot_password_page.dart';
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -491,6 +492,24 @@ class _OtpPageState extends State<OtpPage> {
                     ),
                   ),
                 ),
+
+              // ==== Quên mật khẩu ====
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordPage(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Quên mật khẩu?',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
 
                 const Spacer(),
                 SizedBox(

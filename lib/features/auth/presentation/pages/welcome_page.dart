@@ -11,6 +11,7 @@ import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 
 import 'package:minichatappmobile/features/auth/presentation/pages/login_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/Register/register_email_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:minichatappmobile/features/home/home_page.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -288,6 +289,27 @@ class _WelcomePageState extends State<WelcomePage> {
                       child: Text(
                         'Đăng ký tài khoản',
                         style: AppTextStyles.outlineButtonText,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ==== Quên mật khẩu ====
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordPage(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      'Quên mật khẩu?',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
                       ),
                     ),
                   ),
