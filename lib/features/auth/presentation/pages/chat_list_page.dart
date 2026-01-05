@@ -10,6 +10,8 @@ import 'package:minichatappmobile/features/auth/presentation/pages/user_profile_
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/settings_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/friends_tab.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/create_group_page.dart';
+
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
 
@@ -128,13 +130,26 @@ class _ChatListPageState extends State<ChatListPage> {
 
                   const Spacer(),
 
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppColors.mint,
-                    child: const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                      size: 18,
+                  InkWell(
+                    onTap: () async {
+                      final created = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => CreateGroupPage(myUserId: _myUserId!),
+                        ),
+                      );
+
+                      // created trả về conversation mới, refresh list
+                      if (created == true && mounted) {
+                        setState(() {
+                          _conversationFuture = fetchConversations();
+                        });
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppColors.mint,
+                      child: const Icon(Icons.add, color: Colors.white, size: 18),
                     ),
                   ),
                 ],

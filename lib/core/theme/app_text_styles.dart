@@ -54,4 +54,10 @@ class AppTextStyles {
     color: Colors.black87,
   );
 
+  static TextStyle get bodyText => body.copyWith(
+    color: AppColors.textPrimary,
+    height: 1.4,
+  );
+
+
 }
