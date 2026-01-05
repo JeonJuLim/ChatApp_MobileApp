@@ -12,36 +12,29 @@ import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_pag
 import 'package:minichatappmobile/features/friends/data/repositories/friends_repository.dart';
 import 'package:minichatappmobile/features/friends/presentation/providers/friends_provider.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final prefs = await SharedPreferences.getInstance();
-  final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-  // ✅ Khởi tạo + load trước
   final appearance = AppAppearance();
   await appearance.load();
 
   runApp(
     MultiProvider(
       providers: [
-        // ✅ PROVIDE AppAppearance để MyApp context.watch<AppAppearance>() đọc được
         ChangeNotifierProvider<AppAppearance>.value(value: appearance),
-
         ChangeNotifierProvider(
           create: (_) => FriendsProvider(
             FriendsRepository(AppDio.instance),
           )..load(),
         ),
       ],
-      child: MyApp(isLoggedIn: isLoggedIn),
+      child: const MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  final bool isLoggedIn;
-  const MyApp({super.key, required this.isLoggedIn});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +54,71 @@ class MyApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: isLoggedIn ? const ChatListPage() : const WelcomePage(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  late Future<bool> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _checkAuth();
+  }
+
+  Future<bool> _checkAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    const tokenKey = 'accessToken'; // 🔴 đổi nếu key bạn khác
+    final token = prefs.getString(tokenKey);
+
+    if (token == null || token.isEmpty) {
+      return false;
+    }
+
+    // attach token cho Dio
+    final dio = AppDio.instance;
+    dio.options.headers['Authorization'] = 'Bearer $token';
+
+    try {
+      // 🔴 đổi endpoint nếu backend bạn khác
+      await dio.get('/auth/me');
+      return true;
+    } catch (_) {
+      // token không hợp lệ → logout
+      dio.options.headers.remove('Authorization');
+      await prefs.remove(tokenKey);
+      await prefs.remove('isLoggedIn');
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snap.data == true) {
+          return const ChatListPage();
+        }
+
+        return const WelcomePage();
+      },
     );
   }
 }

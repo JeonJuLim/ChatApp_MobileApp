@@ -74,4 +74,40 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     return this.socketService.messageDelivered(client, data);
   }
+// ✅ CALL SIGNALING: OFFER
+@SubscribeMessage('call:offer')
+handleCallOffer(
+  @MessageBody() payload: any,
+  @ConnectedSocket() client: Socket,
+) {
+  // relay cho các user khác trong conversation room
+  client.to(payload.conversationId).emit('call:offer', payload);
+}
+
+// ✅ CALL SIGNALING: ANSWER
+@SubscribeMessage('call:answer')
+handleCallAnswer(
+  @MessageBody() payload: any,
+  @ConnectedSocket() client: Socket,
+) {
+  client.to(payload.conversationId).emit('call:answer', payload);
+}
+
+// ✅ CALL SIGNALING: ICE
+@SubscribeMessage('call:ice')
+handleCallIce(
+  @MessageBody() payload: any,
+  @ConnectedSocket() client: Socket,
+) {
+  client.to(payload.conversationId).emit('call:ice', payload);
+}
+
+// ✅ CALL SIGNALING: END
+@SubscribeMessage('call:end')
+handleCallEnd(
+  @MessageBody() payload: any,
+  @ConnectedSocket() client: Socket,
+) {
+  client.to(payload.conversationId).emit('call:end', payload);
+}
 }

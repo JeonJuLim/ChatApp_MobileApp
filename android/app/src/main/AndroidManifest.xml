@@ -1,5 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ✅ ĐANG CÓ -->
     <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- ✅ THÊM MỚI: Voice call -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- (khuyến nghị nếu bạn test call khi màn hình tắt / lock) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:label="minichatappmobile"
         android:name="${applicationName}"

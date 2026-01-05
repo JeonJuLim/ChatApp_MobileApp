@@ -1,17 +1,17 @@
+import 'dart:io';
+
 class AppConfig {
-  // ===============================
-  // ANDROID EMULATOR (Android Studio)
-  // ===============================
-//máy ảo dùng dòng này
- static const String apiBaseUrl = 'http://10.0.2.2:3001';
-  static const String socketUrl  = 'http://10.0.2.2:3001';
+  static const String _lanIp = '172.16.1.21';
+  static const int _port = 3001;
 
-// Máy thật của trâm
-  // static const String apiBaseUrl = 'http://127.0.0.1:3001';
-  // static const String socketUrl  = 'http://127.0.0.1:3001';
+  static String get apiBaseUrl {
+    // Android (máy thật + emulator) đều dùng IP LAN của laptop
+    if (Platform.isAndroid) {
+      return 'http://$_lanIp:$_port';
+    }
+    // iOS simulator / desktop
+    return 'http://localhost:$_port';
+  }
 
- // static const String apiBaseUrl = 'http://192.168.1.45:3001';
-  //static const String socketUrl  = 'http://192.168.1.45:3001';
-
-
+  static String get socketUrl => apiBaseUrl;
 }

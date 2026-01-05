@@ -6,6 +6,9 @@ import 'package:minichatappmobile/core/config/app_config.dart';
 import 'package:minichatappmobile/core/socket/socket_service.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/call/voice_call_page.dart';
+import 'package:minichatappmobile/features/auth/presentation/pages/call/video_call_page.dart';
+
 import 'package:http/http.dart' as http;
 
 
@@ -268,6 +271,41 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             fontWeight: FontWeight.w600,
           ),
         ),
+        // ✅ THÊM MỚI: 2 nút call
+        actions: [
+          IconButton(
+            tooltip: 'Call voice',
+            icon: const Icon(Icons.call, color: AppColors.textPrimary),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => VoiceCallPage(
+                    title: widget.title,
+                    conversationId: widget.conversationId,
+                    myUserId: widget.myUserId,
+                    isGroup: widget.isGroup,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Call video',
+            icon: const Icon(Icons.videocam, color: AppColors.textPrimary),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => VideoCallPage(
+                    title: widget.title,
+                    conversationId: widget.conversationId,
+                    myUserId: widget.myUserId,
+                    isGroup: widget.isGroup,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [

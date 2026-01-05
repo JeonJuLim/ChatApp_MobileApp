@@ -76,6 +76,65 @@ class SocketService {
       'messageId': messageId,
     });
   }
+// =======================
+// CALL SIGNALING (ADD NEW)
+// =======================
+
+  void emitCallOffer({
+    required String conversationId,
+    required String fromUserId,
+    required Map<String, dynamic> sdp,
+  }) {
+    _socket!.emit('call:offer', {
+      'conversationId': conversationId,
+      'fromUserId': fromUserId,
+      'sdp': sdp,
+    });
+  }
+
+  void emitCallAnswer({
+    required String conversationId,
+    required String fromUserId,
+    required Map<String, dynamic> sdp,
+  }) {
+    _socket!.emit('call:answer', {
+      'conversationId': conversationId,
+      'fromUserId': fromUserId,
+      'sdp': sdp,
+    });
+  }
+
+  void emitCallIce({
+    required String conversationId,
+    required String fromUserId,
+    required Map<String, dynamic> candidate,
+  }) {
+    _socket!.emit('call:ice', {
+      'conversationId': conversationId,
+      'fromUserId': fromUserId,
+      'candidate': candidate,
+    });
+  }
+
+  void emitCallEnd({
+    required String conversationId,
+    required String fromUserId,
+  }) {
+    _socket!.emit('call:end', {
+      'conversationId': conversationId,
+      'fromUserId': fromUserId,
+    });
+  }
+
+  void onCallOffer(void Function(dynamic) cb) => _socket?.on('call:offer', cb);
+  void onCallAnswer(void Function(dynamic) cb) => _socket?.on('call:answer', cb);
+  void onCallIce(void Function(dynamic) cb) => _socket?.on('call:ice', cb);
+  void onCallEnd(void Function(dynamic) cb) => _socket?.on('call:end', cb);
+
+  void offCallOffer() => _socket?.off('call:offer');
+  void offCallAnswer() => _socket?.off('call:answer');
+  void offCallIce() => _socket?.off('call:ice');
+  void offCallEnd() => _socket?.off('call:end');
 
   // listeners
   void onNewMessage(void Function(dynamic) handler) => _socket?.on('new_message', handler);
