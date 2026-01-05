@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:minichatappmobile/core/theme/app_appearance.dart';
 import 'package:minichatappmobile/core/theme/theme_builder.dart';
 import 'package:minichatappmobile/core/network/app_dio.dart';
+import 'package:minichatappmobile/core/storage/token_storage.dart';
+import 'package:minichatappmobile/core/network/auth_interceptor.dart';
 
 import 'package:minichatappmobile/features/auth/presentation/pages/welcome_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
@@ -18,14 +20,34 @@ Future<void> main() async {
   final appearance = AppAppearance();
   await appearance.load();
 
+  // ✅ tạo 1 instance TokenStorage dùng chung toàn app
+  final tokenStorage = TokenStorage();
+
+  // ✅ gắn interceptor cho AppDio ngay từ đầu
+  // để mọi request đều tự attach Authorization (nếu có token)
+  final dio = AppDio.instance;
+
+  // tránh add trùng interceptor khi hot restart
+  dio.interceptors.removeWhere((i) => i is AuthInterceptor);
+  dio.interceptors.add(AuthInterceptor(tokenStorage));
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AppAppearance>.value(value: appearance),
-        ChangeNotifierProvider(
-          create: (_) => FriendsProvider(
-            FriendsRepository(AppDio.instance),
-          )..load(),
+
+        // ✅ provide cùng 1 instance
+        Provider<TokenStorage>.value(value: tokenStorage),
+
+        Provider<FriendsRepository>(
+          create: (_) => FriendsRepository(dio),
+        ),
+
+        ChangeNotifierProvider<FriendsProvider>(
+          create: (ctx) => FriendsProvider(
+            ctx.read<FriendsRepository>(),
+            ctx.read<TokenStorage>(),
+          )..load(), // ✅ load sớm
         ),
       ],
       child: const MyApp(),
@@ -76,28 +98,18 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<bool> _checkAuth() async {
-    final prefs = await SharedPreferences.getInstance();
+    final storage = context.read<TokenStorage>();
+    final token = await storage.read();
 
-    const tokenKey = 'accessToken'; // 🔴 đổi nếu key bạn khác
-    final token = prefs.getString(tokenKey);
+    if (token == null || token.trim().isEmpty) return false;
 
-    if (token == null || token.isEmpty) {
-      return false;
-    }
-
-    // attach token cho Dio
-    final dio = AppDio.instance;
-    dio.options.headers['Authorization'] = 'Bearer $token';
-
+    // ✅ KHÔNG cần set header ở đây nữa vì interceptor đã tự attach
     try {
-      // 🔴 đổi endpoint nếu backend bạn khác
-      await dio.get('/auth/me');
+      await AppDio.instance.get('/auth/me');
       return true;
     } catch (_) {
       // token không hợp lệ → logout
-      dio.options.headers.remove('Authorization');
-      await prefs.remove(tokenKey);
-      await prefs.remove('isLoggedIn');
+      await storage.clear();
       return false;
     }
   }
@@ -113,9 +125,7 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        if (snap.data == true) {
-          return const ChatListPage();
-        }
+        if (snap.data == true) return const ChatListPage();
 
         return const WelcomePage();
       },

@@ -4,25 +4,39 @@ FriendRelationStatus _parseStatus(String s) {
   final v = s.trim().toLowerCase();
 
   switch (v) {
+  // ✅ Friend / Accepted (backend hay trả)
     case 'friend':
     case 'friends':
+    case 'accepted':
+    case 'accept':
+    case 'approved':
+    case 'success':
+    case 'ok':
       return FriendRelationStatus.friend;
 
+  // ✅ Incoming request
     case 'incomingrequest':
     case 'incoming_request':
     case 'incoming':
     case 'pending_in':
+    case 'request_in':
+    case 'in':
       return FriendRelationStatus.incomingRequest;
 
+  // ✅ Outgoing request
     case 'outgoingrequest':
     case 'outgoing_request':
     case 'outgoing':
     case 'pending_out':
+    case 'request_out':
+    case 'out':
       return FriendRelationStatus.outgoingRequest;
 
     default:
-    // fallback an toàn: không crash app
-      return FriendRelationStatus.friend;
+    // 🔎 Debug: xem backend trả status gì
+    // ignore: avoid_print
+      print('⚠️ Unknown friend status from API: "$s" -> fallback friend');
+      return FriendRelationStatus.friend; // fallback an toàn
   }
 }
 
@@ -43,11 +57,11 @@ class FriendUser {
 
   factory FriendUser.fromJson(Map<String, dynamic> json) {
     return FriendUser(
-      id: json['id'] as String,
-      username: (json['username'] ?? '') as String,
-      fullName: (json['fullName'] ?? '') as String,
-      phoneE164: json['phoneE164'] as String?,
-      avatarUrl: json['avatarUrl'] as String?,
+      id: (json['id'] ?? '').toString(),
+      username: (json['username'] ?? '').toString(),
+      fullName: (json['fullName'] ?? json['name'] ?? '').toString(),
+      phoneE164: json['phoneE164']?.toString(),
+      avatarUrl: json['avatarUrl']?.toString(),
     );
   }
 }
@@ -68,10 +82,18 @@ class FriendRelation {
   });
 
   factory FriendRelation.fromJson(Map<String, dynamic> json) {
+    final statusStr = (json['status'] ?? '').toString();
+    final userRaw = json['user'];
+
+    // Nếu backend trả user thiếu hoặc null, tránh crash
+    final userMap = userRaw is Map
+        ? Map<String, dynamic>.from(userRaw as Map)
+        : <String, dynamic>{};
+
     return FriendRelation(
-      status: _parseStatus(json['status'] as String),
-      requestId: json['requestId'] as String?,
-      user: FriendUser.fromJson(json['user'] as Map<String, dynamic>),
+      status: _parseStatus(statusStr),
+      requestId: json['requestId']?.toString(),
+      user: FriendUser.fromJson(userMap),
     );
   }
 }
