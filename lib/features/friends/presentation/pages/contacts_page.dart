@@ -47,7 +47,6 @@ class _ContactsPageState extends State<ContactsPage> with SingleTickerProviderSt
               onScan: () {},
             ),
 
-            // Tabs nhỏ (giống hình: underline nhẹ)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Container(
@@ -84,7 +83,10 @@ class _ContactsPageState extends State<ContactsPage> with SingleTickerProviderSt
                   : TabBarView(
                 controller: _tab,
                 children: [
-                  _FriendsSection(relations: vm.friends),
+                  _FriendsSection(
+                    relations: vm.friends,
+                    onOpenRequestsTab: () => _tab.animateTo(1),
+                  ),
                   _RequestsSection(
                     incoming: vm.incomingRequests,
                     outgoing: vm.outgoingRequests,
@@ -101,7 +103,7 @@ class _ContactsPageState extends State<ContactsPage> with SingleTickerProviderSt
 }
 
 /// =======================
-/// HEADER giống hình mẫu
+/// HEADER
 /// =======================
 class _Header extends StatelessWidget {
   final String title;
@@ -128,7 +130,6 @@ class _Header extends StatelessWidget {
               style: AppTextStyles.welcomeTitle.copyWith(color: context.text),
             ),
           ),
-
           _IconCircle(icon: Icons.search, onTap: onSearch),
           const SizedBox(width: 10),
           _IconCircle(icon: Icons.person_add_alt_1, onTap: onAdd),
@@ -144,10 +145,7 @@ class _IconCircle extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _IconCircle({
-    required this.icon,
-    required this.onTap,
-  });
+  const _IconCircle({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -169,25 +167,37 @@ class _IconCircle extends StatelessWidget {
 }
 
 /// =======================
-/// TAB 1: BẠN BÈ (chia theo chữ cái)
+/// TAB 1: BẠN BÈ
 /// =======================
 class _FriendsSection extends StatelessWidget {
   final List<FriendRelation> relations;
+  final VoidCallback onOpenRequestsTab;
 
-  const _FriendsSection({required this.relations});
+  const _FriendsSection({
+    required this.relations,
+    required this.onOpenRequestsTab,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final incomingCount = context.watch<FriendsProvider>().incomingRequests.length;
+
     if (relations.isEmpty) {
-      return Center(
-        child: Text(
-          'Chưa có bạn bè',
-          style: AppTextStyles.welcomeSubtitle.copyWith(color: context.subtext),
-        ),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+        children: [
+          _RequestSummaryCard(count: incomingCount, onTap: onOpenRequestsTab),
+          const SizedBox(height: 14),
+          Center(
+            child: Text(
+              'Chưa có bạn bè',
+              style: AppTextStyles.welcomeSubtitle.copyWith(color: context.subtext),
+            ),
+          ),
+        ],
       );
     }
 
-    // Group theo chữ cái đầu
     final groups = <String, List<FriendRelation>>{};
     for (final r in relations) {
       final key = _firstLetter(r.user.fullName);
@@ -200,16 +210,8 @@ class _FriendsSection extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
       children: [
-        // Card "Lời mời kết bạn (x)" giống hình
-        _RequestSummaryCard(
-          count: context.watch<FriendsProvider>().incomingRequests.length,
-          onTap: () {
-            // chuyển sang tab Lời mời
-            DefaultTabController.of(context); // ignore
-          },
-        ),
+        _RequestSummaryCard(count: incomingCount, onTap: onOpenRequestsTab),
         const SizedBox(height: 14),
-
         for (final k in sortedKeys) ...[
           _GroupHeader(letter: k),
           const SizedBox(height: 8),
@@ -218,24 +220,15 @@ class _FriendsSection extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: _ContactRow(
                 name: r.user.fullName,
-                subtitle: r.user.phoneE164,
-                // 2 nút hành động như hình
+                subtitle: r.user.username.isNotEmpty
+                    ? '@${r.user.username}'
+                    : (r.user.phoneE164 ?? ''),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _ActionCircle(
-                      icon: Icons.chat_bubble_outline,
-                      onTap: () {
-                        // TODO: mở chat
-                      },
-                    ),
+                    _ActionCircle(icon: Icons.chat_bubble_outline, onTap: () {}),
                     const SizedBox(width: 8),
-                    _ActionCircle(
-                      icon: Icons.call_outlined,
-                      onTap: () {
-                        // TODO: call
-                      },
-                    ),
+                    _ActionCircle(icon: Icons.call_outlined, onTap: () {}),
                   ],
                 ),
               ),
@@ -256,7 +249,6 @@ class _FriendsSection extends StatelessWidget {
 
 class _GroupHeader extends StatelessWidget {
   final String letter;
-
   const _GroupHeader({required this.letter});
 
   @override
@@ -297,10 +289,7 @@ class _RequestSummaryCard extends StatelessWidget {
             Expanded(
               child: Text(
                 'Lời mời kết bạn ($count)',
-                style: TextStyle(
-                  color: context.text,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(color: context.text, fontWeight: FontWeight.w700),
               ),
             ),
             Icon(Icons.chevron_right, color: context.subtext),
@@ -312,7 +301,7 @@ class _RequestSummaryCard extends StatelessWidget {
 }
 
 /// =======================
-/// TAB 2: LỜI MỜI (incoming/outgoing)
+/// TAB 2: LỜI MỜI
 /// =======================
 class _RequestsSection extends StatelessWidget {
   final List<FriendRelation> incoming;
@@ -344,19 +333,21 @@ class _RequestsSection extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: _ContactRow(
                 name: r.user.fullName,
-                subtitle: r.user.phoneE164,
+                subtitle: r.user.username.isNotEmpty
+                    ? '@${r.user.username}'
+                    : (r.user.phoneE164 ?? ''),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _ActionPill(
                       text: 'Từ chối',
-                      onTap: () => vm.reject(r.user.phoneE164),
+                      onTap: () => vm.reject(r.requestId!),
                       filled: false,
                     ),
                     const SizedBox(width: 8),
                     _ActionPill(
                       text: 'Chấp nhận',
-                      onTap: () => vm.accept(r.user.phoneE164),
+                      onTap: () => vm.accept(r.requestId!),
                       filled: true,
                     ),
                   ],
@@ -381,8 +372,10 @@ class _RequestsSection extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: _ContactRow(
                 name: r.user.fullName,
-                subtitle: 'Đã gửi lời mời • ${r.user.phoneE164}',
-                trailing: _StatusTag(text: 'Đã gửi'),
+                subtitle: r.user.username.isNotEmpty
+                    ? 'Đã gửi lời mời • @${r.user.username}'
+                    : 'Đã gửi lời mời • ${r.user.phoneE164 ?? ''}',
+                trailing: const _StatusTag(text: 'Đã gửi'),
               ),
             ),
           ),
@@ -392,7 +385,7 @@ class _RequestsSection extends StatelessWidget {
 }
 
 /// =======================
-/// TAB 3: THÊM BẠN (SĐT) - style giống hình
+/// TAB 3: THÊM BẠN (SĐT + USERNAME) — DB THẬT
 /// =======================
 class _AddFriendSection extends StatefulWidget {
   const _AddFriendSection();
@@ -402,11 +395,13 @@ class _AddFriendSection extends StatefulWidget {
 }
 
 class _AddFriendSectionState extends State<_AddFriendSection> {
-  final _c = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _c.dispose();
+    _phoneCtrl.dispose();
+    _usernameCtrl.dispose();
     super.dispose();
   }
 
@@ -426,30 +421,16 @@ class _AddFriendSectionState extends State<_AddFriendSection> {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
       children: [
         Text(
-          'Thêm bạn bằng số điện thoại',
+          'Thêm bạn bằng username',
           style: AppTextStyles.welcomeSubtitle.copyWith(color: context.text),
         ),
         const SizedBox(height: 10),
 
-        Container(
-          decoration: BoxDecoration(
-            color: context.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: context.divider.withOpacity(0.25)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: TextField(
-            controller: _c,
-            keyboardType: TextInputType.phone,
-            style: TextStyle(color: context.text),
-            decoration: InputDecoration(
-              hintText: 'Nhập SĐT (VD: 0839610128)',
-              hintStyle: TextStyle(color: context.subtext),
-              border: InputBorder.none,
-            ),
-          ),
+        _InputCard(
+          controller: _usernameCtrl,
+          hint: 'Nhập username (VD: ironman)',
+          keyboardType: TextInputType.text,
         ),
-
         const SizedBox(height: 12),
 
         SizedBox(
@@ -461,7 +442,50 @@ class _AddFriendSectionState extends State<_AddFriendSection> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
             ),
             onPressed: () async {
-              final e164 = _normalizeToE164VN(_c.text);
+              final username = _usernameCtrl.text.trim();
+              if (username.isEmpty) return;
+
+              await context.read<FriendsProvider>().sendRequestByUsername(username);
+
+              if (!mounted) return;
+              if (vm.error == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Đã gửi lời mời tới @$username')),
+                );
+                _usernameCtrl.clear();
+              }
+            },
+            child: const Text('Gửi lời mời (Username)'),
+          ),
+        ),
+
+        const SizedBox(height: 18),
+        Divider(color: context.divider.withOpacity(0.25)),
+        const SizedBox(height: 18),
+
+        Text(
+          'Thêm bạn bằng số điện thoại',
+          style: AppTextStyles.welcomeSubtitle.copyWith(color: context.text),
+        ),
+        const SizedBox(height: 10),
+
+        _InputCard(
+          controller: _phoneCtrl,
+          hint: 'Nhập SĐT (VD: 0839610128)',
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 12),
+
+        SizedBox(
+          height: 48,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+            ),
+            onPressed: () async {
+              final e164 = _normalizeToE164VN(_phoneCtrl.text);
               if (e164.isEmpty) return;
 
               await context.read<FriendsProvider>().sendRequest(e164);
@@ -471,25 +495,53 @@ class _AddFriendSectionState extends State<_AddFriendSection> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Đã gửi lời mời tới $e164')),
                 );
-                _c.clear();
+                _phoneCtrl.clear();
               }
             },
-            child: const Text('Gửi lời mời'),
+            child: const Text('Gửi lời mời (SĐT)'),
           ),
-        ),
-
-        const SizedBox(height: 12),
-        Text(
-          'Gợi ý: mock sẽ tự tạo user để test với mọi số.',
-          style: TextStyle(color: context.subtext),
         ),
       ],
     );
   }
 }
 
+class _InputCard extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final TextInputType keyboardType;
+
+  const _InputCard({
+    required this.controller,
+    required this.hint,
+    required this.keyboardType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: context.divider.withOpacity(0.25)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: TextStyle(color: context.text),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: context.subtext),
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+}
+
 /// =======================
-/// COMPONENTS (row, buttons, tag, error)
+/// COMPONENTS
 /// =======================
 class _ContactRow extends StatelessWidget {
   final String name;
@@ -519,15 +571,9 @@ class _ContactRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: TextStyle(color: context.text, fontWeight: FontWeight.w700),
-                ),
+                Text(name, style: TextStyle(color: context.text, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: context.subtext, fontSize: 12),
-                ),
+                Text(subtitle, style: TextStyle(color: context.subtext, fontSize: 12)),
               ],
             ),
           ),
@@ -546,7 +592,6 @@ class _ContactRow extends StatelessWidget {
 
 class _Avatar extends StatelessWidget {
   final String letter;
-
   const _Avatar({required this.letter});
 
   @override
@@ -556,10 +601,7 @@ class _Avatar extends StatelessWidget {
       backgroundColor: context.primary.withOpacity(0.18),
       child: Text(
         letter,
-        style: TextStyle(
-          color: context.primary,
-          fontWeight: FontWeight.w800,
-        ),
+        style: TextStyle(color: context.primary, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -627,7 +669,6 @@ class _ActionPill extends StatelessWidget {
 
 class _StatusTag extends StatelessWidget {
   final String text;
-
   const _StatusTag({required this.text});
 
   @override
@@ -641,11 +682,7 @@ class _StatusTag extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: context.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-        ),
+        style: TextStyle(color: context.primary, fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -653,7 +690,6 @@ class _StatusTag extends StatelessWidget {
 
 class _InlineError extends StatelessWidget {
   final String text;
-
   const _InlineError({required this.text});
 
   @override

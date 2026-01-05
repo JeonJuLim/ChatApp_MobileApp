@@ -25,7 +25,7 @@ class _LoginPasswordPageState extends State<LoginPasswordPage> {
   /// - Máy thật: http://<IP_MÁY_MAC>:3001 (vd: http://172.16.1.105:3001)
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: "http://192.168.1.45:3001",
+      baseUrl: "http://172.16.1.21:3001",
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {"Content-Type": "application/json"},

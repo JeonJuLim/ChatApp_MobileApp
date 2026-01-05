@@ -11,18 +11,21 @@ import { UsersModule } from './modules/users/users.module';
 
 import { MessagesController } from './messages.controller';
 import { ConversationsController } from './conversations.controller';
-
+import { FriendsModule } from './modules/friends/friends.module';
+import { HealthController } from './health.controller';
 @Module({
   imports: [
     PrismaModule,
     SocketModule,
     AuthModule,
     UsersModule,
+    FriendsModule,
   ],
   controllers: [
     AppController,
     MessagesController,
     ConversationsController,
+    HealthController,
   ],
   providers: [AppService],
 })

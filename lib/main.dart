@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:minichatappmobile/core/theme/app_appearance.dart';
 import 'package:minichatappmobile/core/theme/theme_builder.dart';
+import 'package:minichatappmobile/core/network/app_dio.dart';
 
 import 'package:minichatappmobile/features/auth/presentation/pages/welcome_page.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
@@ -15,18 +16,22 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
-  await prefs.remove('isLoggedIn');
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
+  // ✅ Khởi tạo + load trước
   final appearance = AppAppearance();
   await appearance.load();
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: appearance),
+        // ✅ PROVIDE AppAppearance để MyApp context.watch<AppAppearance>() đọc được
+        ChangeNotifierProvider<AppAppearance>.value(value: appearance),
+
         ChangeNotifierProvider(
-          create: (_) => FriendsProvider(FriendsRepositoryMock()),
+          create: (_) => FriendsProvider(
+            FriendsRepository(AppDio.instance),
+          )..load(),
         ),
       ],
       child: MyApp(isLoggedIn: isLoggedIn),
@@ -36,7 +41,6 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   final bool isLoggedIn;
-
   const MyApp({super.key, required this.isLoggedIn});
 
   @override
@@ -60,5 +64,4 @@ class MyApp extends StatelessWidget {
       home: isLoggedIn ? const ChatListPage() : const WelcomePage(),
     );
   }
-
 }

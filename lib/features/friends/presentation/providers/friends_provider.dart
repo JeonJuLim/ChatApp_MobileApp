@@ -40,6 +40,7 @@ class FriendsProvider extends ChangeNotifier {
   Future<void> sendRequest(String phoneE164) async {
     _error = null;
     notifyListeners();
+
     try {
       await repo.sendFriendRequest(phoneE164);
       await load();
@@ -49,13 +50,42 @@ class FriendsProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> accept(String phoneE164) async {
-    await repo.acceptFriendRequest(phoneE164);
-    await load();
+  Future<void> sendRequestByUsername(String username) async {
+    _error = null;
+    notifyListeners();
+
+    try {
+      await repo.sendFriendRequestByUsername(username);
+      await load();
+    } catch (_) {
+      _error = 'Không thể gửi lời mời lúc này';
+      notifyListeners();
+    }
   }
 
-  Future<void> reject(String phoneE164) async {
-    await repo.rejectFriendRequest(phoneE164);
-    await load();
+  Future<void> accept(String requestId) async {
+    _error = null;
+    notifyListeners();
+
+    try {
+      await repo.acceptFriendRequest(requestId);
+      await load();
+    } catch (_) {
+      _error = 'Không thể chấp nhận lúc này';
+      notifyListeners();
+    }
+  }
+
+  Future<void> reject(String requestId) async {
+    _error = null;
+    notifyListeners();
+
+    try {
+      await repo.rejectFriendRequest(requestId);
+      await load();
+    } catch (_) {
+      _error = 'Không thể từ chối lúc này';
+      notifyListeners();
+    }
   }
 }

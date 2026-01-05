@@ -94,6 +94,45 @@ await prisma.conversation.upsert({
   },
 });
 
+//
+// 1) đảm bảo user khiem tồn tại
+const khiem = await prisma.user.findUnique({
+  where: { username: 'khiem1_44078' },
+});
+if (!khiem) {
+  throw new Error('User khiem1_44078 not found. Seed user này trước.');
+}
+
+// 2) upsert tram1
+const tram = await prisma.user.upsert({
+  where: { username: 'tram1' },
+  update: {},
+  create: {
+    username: 'tram1',
+    fullName: 'Trâm',
+    authProvider: 'phone',
+    phoneVerifyRequired: false,
+    // các field optional
+    avatarUrl: null,
+    status: null,
+    gender: null,
+    area: null,
+    phoneE164: null,
+    email: null,
+    passwordHash: null,
+  },
+});
+
+// 3) tạo quan hệ bạn bè 2 chiều (Contact)
+await prisma.contact.createMany({
+  data: [
+    { ownerId: tram.id, contactId: khiem.id },
+    { ownerId: khiem.id, contactId: tram.id },
+  ],
+  skipDuplicates: true,
+});
+
+console.log('Seed: created friendship tram1 <-> khiem1_44078');
 
   // ===== CONVERSATION (direct) =====
   const c1 = await prisma.conversation.upsert({

@@ -37,7 +37,7 @@ class _RegisterInfoPageState extends State<RegisterInfoPage> {
   // =========================
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: "http://192.168.1.45:3001", // <-- đổi đúng LAN IP
+      baseUrl: "http://172.16.1.21:3001", // <-- đổi đúng LAN IP
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {"Content-Type": "application/json"},

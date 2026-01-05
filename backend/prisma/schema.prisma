@@ -73,6 +73,10 @@ model User {
   contactsFriend       Contact[]            @relation("friend")
   callLogsCaller       CallLog[]            @relation("caller")
   callLogsReceiver     CallLog[]            @relation("receiver")
+  // FRIEND REQUESTS
+  friendRequestsSent     FriendRequest[] @relation("FriendRequestFrom")
+  friendRequestsReceived FriendRequest[] @relation("FriendRequestTo")
+
 }
 
 
@@ -177,7 +181,35 @@ model Contact {
 
   owner  User @relation("owner", fields: [ownerId], references: [id])
   friend User @relation("friend", fields: [contactId], references: [id])
+
+  @@unique([ownerId, contactId], name: "ownerId_contactId")
+  @@index([ownerId])
+  @@index([contactId])
 }
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELED
+}
+
+model FriendRequest {
+  id        String              @id @default(uuid())
+  status    FriendRequestStatus @default(PENDING)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  fromUserId String
+  toUserId   String
+
+  fromUser User @relation("FriendRequestFrom", fields: [fromUserId], references: [id])
+  toUser   User @relation("FriendRequestTo", fields: [toUserId], references: [id])
+
+  @@unique([fromUserId, toUserId], name: "fromUserId_toUserId")
+  @@index([toUserId, status])
+  @@index([fromUserId, status])
+}
+
 
 // ===========================
 // CALL LOGS (audio/video)
