@@ -6,35 +6,97 @@ class FriendsRepository {
   FriendsRepository(this._dio);
 
   Future<List<FriendRelation>> getRelations() async {
-    final res = await _dio.get('/friends/relations');
+    try {
+      final res = await _dio.get('/friends/relations');
 
-    // Debug payload thật (chỉ bật khi cần)
-    // ignore: avoid_print
-    print('FRIENDS RAW -> ${res.data}');
+      // ✅ Debug request/response
+      // ignore: avoid_print
+      print('FRIENDS REQ -> ${res.requestOptions.method} ${res.requestOptions.uri}');
+      // ignore: avoid_print
+      print('FRIENDS AUTH -> ${res.requestOptions.headers['Authorization'] ?? 'NOT_SET'}');
+      // ignore: avoid_print
+      print('FRIENDS STATUS -> ${res.statusCode}');
+      // ignore: avoid_print
+      print('FRIENDS RAW -> ${res.data}');
 
-    if (res.data is! List) {
-      throw Exception('Invalid response: expected List, got ${res.data.runtimeType}');
+      final raw = res.data;
+
+      // Support: backend trả List hoặc wrapper {data/items/relations: [...]}
+      List<dynamic>? list;
+      if (raw is List) {
+        list = raw;
+      } else if (raw is Map<String, dynamic>) {
+        final candidate = raw['data'] ?? raw['items'] ?? raw['relations'];
+        if (candidate is List) list = candidate;
+      }
+
+      if (list == null) {
+        throw Exception(
+          'Invalid response for /friends/relations: expected List or wrapper map, got ${raw.runtimeType}',
+        );
+      }
+
+      return list
+          .whereType<Map>()
+          .map((e) => FriendRelation.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } on DioException catch (e) {
+      // ✅ Debug DioException
+      // ignore: avoid_print
+      print('FRIENDS DIO ERROR -> ${e.requestOptions.method} ${e.requestOptions.uri}');
+      // ignore: avoid_print
+      print('FRIENDS DIO STATUS -> ${e.response?.statusCode}');
+      // ignore: avoid_print
+      print('FRIENDS DIO DATA -> ${e.response?.data}');
+      rethrow;
+    } catch (e) {
+      // ignore: avoid_print
+      print('FRIENDS ERROR -> $e');
+      rethrow;
     }
-
-    return (res.data as List)
-        .whereType<Map<String, dynamic>>()
-        .map(FriendRelation.fromJson)
-        .toList();
   }
 
   Future<void> sendFriendRequest(String phoneE164) async {
-    await _dio.post('/friends/request', data: {'phoneE164': phoneE164});
+    try {
+      final res = await _dio.post('/friends/request', data: {'phoneE164': phoneE164});
+      // ignore: avoid_print
+      print('FRIENDS POST /friends/request -> ${res.statusCode} ${res.data}');
+    } on DioException catch (e) {
+      // ignore: avoid_print
+      print('FRIENDS DIO ERROR /friends/request -> ${e.response?.statusCode} ${e.response?.data}');
+      rethrow;
+    }
   }
 
   Future<void> sendFriendRequestByUsername(String username) async {
-    await _dio.post('/friends/request-by-username', data: {'username': username});
+    await _dio.post(
+      '/friends/request-by-username',
+      data: {'username': username},
+    );
   }
 
   Future<void> acceptFriendRequest(String requestId) async {
-    await _dio.post('/friends/requests/accept', data: {'requestId': requestId});
+    try {
+      final res = await _dio.post('/friends/requests/accept', data: {'requestId': requestId});
+      // ignore: avoid_print
+      print('FRIENDS POST /friends/requests/accept -> ${res.statusCode} ${res.data}');
+    } on DioException catch (e) {
+      // ignore: avoid_print
+      print('FRIENDS DIO ERROR /friends/requests/accept -> ${e.response?.statusCode} ${e.response?.data}');
+      rethrow;
+    }
   }
 
+
   Future<void> rejectFriendRequest(String requestId) async {
-    await _dio.post('/friends/requests/reject', data: {'requestId': requestId});
+    try {
+      final res = await _dio.post('/friends/requests/reject', data: {'requestId': requestId});
+      // ignore: avoid_print
+      print('FRIENDS POST /friends/requests/reject -> ${res.statusCode} ${res.data}');
+    } on DioException catch (e) {
+      // ignore: avoid_print
+      print('FRIENDS DIO ERROR /friends/requests/reject -> ${e.response?.statusCode} ${e.response?.data}');
+      rethrow;
+    }
   }
 }

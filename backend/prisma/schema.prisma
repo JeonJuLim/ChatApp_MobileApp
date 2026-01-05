@@ -14,53 +14,52 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 // ===========================
 // USERS
 // ===========================
 model User {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
   // ===========================
   // PROFILE
   // ===========================
-  username     String   @unique
-  fullName     String
-  avatarUrl    String?
-  status       String?
-  gender       String?     // 'male' | 'female'
-  dob          DateTime?   // ngày sinh
-  area         String?     // tỉnh/thành
+  username  String    @unique
+  fullName  String
+  avatarUrl String?
+  status    String?
+  gender    String? // 'male' | 'female'
+  dob       DateTime? // ngày sinh
+  area      String? // tỉnh/thành
 
   // ===========================
   // AUTH SOURCE
   // ===========================
-  authProvider String   @default("phone")
-  googleSub    String?  @unique
+  authProvider String  @default("phone")
+  googleSub    String? @unique
 
   // ===========================
   // PHONE (OTP REQUIRED)
   // ===========================
-  phoneE164        String?  @unique
-  phoneVerifiedAt  DateTime?
-  phoneVerifyRequired Boolean @default(true)
+  phoneE164           String?   @unique
+  phoneVerifiedAt     DateTime?
+  phoneVerifyRequired Boolean   @default(true)
 
   // ===========================
   // EMAIL (OPTIONAL)
   // ===========================
-  email            String?  @unique
-  emailVerifiedAt  DateTime?
+  email           String?   @unique
+  emailVerifiedAt DateTime?
 
   // ===========================
   // PASSWORD (OPTIONAL)
   // ===========================
-  passwordHash     String?
+  passwordHash String?
 
   // ===========================
   // AUDIT
   // ===========================
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // ===========================
   // RELATIONS
@@ -73,12 +72,11 @@ model User {
   contactsFriend       Contact[]            @relation("friend")
   callLogsCaller       CallLog[]            @relation("caller")
   callLogsReceiver     CallLog[]            @relation("receiver")
+
   // FRIEND REQUESTS
   friendRequestsSent     FriendRequest[] @relation("FriendRequestFrom")
   friendRequestsReceived FriendRequest[] @relation("FriendRequestTo")
-
 }
-
 
 // ===========================
 // CONVERSATIONS
@@ -112,7 +110,8 @@ model ConversationMember {
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
   user         User         @relation(fields: [userId], references: [id])
-   @@unique([conversationId, userId])
+
+  @@unique([conversationId, userId])
 }
 
 // ===========================
@@ -134,7 +133,6 @@ model Message {
   replies       Message[]       @relation("reply")
   messageStatus MessageStatus[]
   attachments   Attachment[]
-
 }
 
 // ===========================
@@ -153,7 +151,6 @@ model MessageStatus {
 
   @@unique([messageId, userId], name: "messageId_userId")
 }
-
 
 // ===========================
 // ATTACHMENTS (MinIO files)
@@ -186,6 +183,10 @@ model Contact {
   @@index([ownerId])
   @@index([contactId])
 }
+
+// ===========================
+// FRIEND REQUESTS
+// ===========================
 enum FriendRequestStatus {
   PENDING
   ACCEPTED
@@ -210,7 +211,6 @@ model FriendRequest {
   @@index([fromUserId, status])
 }
 
-
 // ===========================
 // CALL LOGS (audio/video)
 // ===========================
@@ -228,4 +228,8 @@ model CallLog {
   caller       User         @relation("caller", fields: [callerId], references: [id])
   receiver     User         @relation("receiver", fields: [receiverId], references: [id])
   conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([callerId])
+  @@index([receiverId])
+  @@index([conversationId])
 }

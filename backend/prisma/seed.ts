@@ -8,8 +8,9 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 10);
 
   // =========================
-  // USERS
+  // USERS (upsert để chạy seed nhiều lần không lỗi)
   // =========================
+
   const u1 = await prisma.user.upsert({
     where: { email: 'tram1@gmail.com' },
     update: {},
@@ -18,7 +19,7 @@ async function main() {
       fullName: 'Tram 1',
       email: 'tram1@gmail.com',
 
-      // NOTE: nếu schema bạn KHÔNG có emailVerifiedAt mà là emailVerified (boolean)
+      // NOTE: nếu schema bạn KHÔNG có emailVerifiedAt mà là emailVerified(boolean)
       // thì đổi thành: emailVerified: true
       emailVerifiedAt: new Date(),
 
@@ -85,6 +86,25 @@ async function main() {
     },
   });
 
+  // ✅ FIX CHÍNH: tạo luôn user khiem1_44078 nếu chưa có
+  const khiemUser = await prisma.user.upsert({
+    where: { username: 'khiem1_44078' },
+    update: {},
+    create: {
+      username: 'khiem1_44078',
+      fullName: 'Dang Hoang Khiem',
+      email: 'khiem1_44078@test.com',
+      emailVerifiedAt: new Date(),
+
+      authProvider: 'password',
+      passwordHash,
+
+      phoneVerifyRequired: false,
+      status: 'online',
+      avatarUrl: 'https://i.pravatar.cc/300?img=20',
+    },
+  });
+
   // =========================
   // GROUP CONVERSATION
   // =========================
@@ -107,23 +127,29 @@ async function main() {
     },
   });
 
-  // Seed messages cho group (skipDuplicates không áp dụng cho message, nên cứ tạo bình thường)
-  await prisma.message.createMany({
-    data: [
-      {
-        conversationId: 'seed-group-1',
-        senderId: u2.id,
-        content: 'Chào mọi người 👋',
-        type: 'text',
-      },
-      {
-        conversationId: 'seed-group-1',
-        senderId: u3.id,
-        content: 'Mình mới vào nhóm',
-        type: 'text',
-      },
-    ],
+  // ✅ tránh nhân đôi messages cho group mỗi lần seed
+  const groupMsgCount = await prisma.message.count({
+    where: { conversationId: 'seed-group-1' },
   });
+
+  if (groupMsgCount === 0) {
+    await prisma.message.createMany({
+      data: [
+        {
+          conversationId: 'seed-group-1',
+          senderId: u2.id,
+          content: 'Chào mọi người 👋',
+          type: 'text',
+        },
+        {
+          conversationId: 'seed-group-1',
+          senderId: u3.id,
+          content: 'Mình mới vào nhóm',
+          type: 'text',
+        },
+      ],
+    });
+  }
 
   // =========================
   // DIRECT CONVERSATION: u1 <-> u2
@@ -144,7 +170,6 @@ async function main() {
     },
   });
 
-  // Seed 1 message cho direct u1-u2 (nếu muốn tránh tạo trùng thì check count trước)
   const c1Count = await prisma.message.count({ where: { conversationId: c1.id } });
   if (c1Count === 0) {
     await prisma.message.create({
@@ -158,24 +183,10 @@ async function main() {
   }
 
   // ================================
-  // SEED FRIEND + DIRECT CHAT: tram1 <-> khiem1_44078
+  // CONTACT + DIRECT CHAT: tram1 <-> khiem1_44078
   // ================================
-  const khiemUser = await prisma.user.findUnique({
-    where: { username: 'khiem1_44078' },
-  });
-
-  if (!khiemUser) {
-    throw new Error('User khiem1_44078 not found. Seed user này trước.');
-  }
-
-  // đảm bảo tram1 tồn tại bằng username = tram1 (đã tạo ở trên rồi, nhưng vẫn find cho chắc)
-  const tramUser = await prisma.user.findUnique({
-    where: { username: 'tram1' },
-  });
-
-  if (!tramUser) {
-    throw new Error('User tram1 not found (unexpected).');
-  }
+  const tramUser = await prisma.user.findUnique({ where: { username: 'tram1' } });
+  if (!tramUser) throw new Error('User tram1 not found (unexpected).');
 
   // 1) đảm bảo contact 2 chiều
   await prisma.contact.createMany({
@@ -193,7 +204,6 @@ async function main() {
       AND: [
         { members: { some: { userId: khiemUser.id } } },
         { members: { some: { userId: tramUser.id } } },
-        // điều kiện every giúp tránh conversation có member khác (phòng trường hợp dữ liệu bẩn)
         { members: { every: { userId: { in: [khiemUser.id, tramUser.id] } } } },
       ],
     },
@@ -248,6 +258,7 @@ async function main() {
   console.log('Login test:');
   console.log('Email:', 'tram1@gmail.com');
   console.log('Password:', password);
+  console.log('Extra user:', 'khiem1_44078 / same password');
 }
 
 main()

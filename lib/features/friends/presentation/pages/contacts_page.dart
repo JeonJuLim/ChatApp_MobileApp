@@ -13,7 +13,8 @@ class ContactsPage extends StatefulWidget {
   State<ContactsPage> createState() => _ContactsPageState();
 }
 
-class _ContactsPageState extends State<ContactsPage> with SingleTickerProviderStateMixin {
+class _ContactsPageState extends State<ContactsPage>
+    with SingleTickerProviderStateMixin {
   late final TabController _tab;
 
   @override
@@ -46,7 +47,6 @@ class _ContactsPageState extends State<ContactsPage> with SingleTickerProviderSt
               onAdd: () => _tab.animateTo(2),
               onScan: () {},
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Container(
@@ -70,13 +70,11 @@ class _ContactsPageState extends State<ContactsPage> with SingleTickerProviderSt
                 ),
               ),
             ),
-
             if (vm.error != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
                 child: _InlineError(text: vm.error!),
               ),
-
             Expanded(
               child: vm.loading
                   ? const Center(child: CircularProgressIndicator())
@@ -180,7 +178,8 @@ class _FriendsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final incomingCount = context.watch<FriendsProvider>().incomingRequests.length;
+    final incomingCount =
+        context.watch<FriendsProvider>().incomingRequests.length;
 
     if (relations.isEmpty) {
       return ListView(
@@ -191,7 +190,8 @@ class _FriendsSection extends StatelessWidget {
           Center(
             child: Text(
               'Chưa có bạn bè',
-              style: AppTextStyles.welcomeSubtitle.copyWith(color: context.subtext),
+              style: AppTextStyles.welcomeSubtitle
+                  .copyWith(color: context.subtext),
             ),
           ),
         ],
@@ -324,7 +324,6 @@ class _RequestsSection extends StatelessWidget {
           style: AppTextStyles.welcomeSubtitle.copyWith(color: context.text),
         ),
         const SizedBox(height: 10),
-
         if (incoming.isEmpty)
           Text('Không có', style: TextStyle(color: context.subtext))
         else
@@ -355,15 +354,12 @@ class _RequestsSection extends StatelessWidget {
               ),
             ),
           ),
-
         const SizedBox(height: 18),
-
         Text(
           'Lời mời đã gửi',
           style: AppTextStyles.welcomeSubtitle.copyWith(color: context.text),
         ),
         const SizedBox(height: 10),
-
         if (outgoing.isEmpty)
           Text('Không có', style: TextStyle(color: context.subtext))
         else
@@ -416,6 +412,7 @@ class _AddFriendSectionState extends State<_AddFriendSection> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<FriendsProvider>();
+    final busy = vm.loading;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
@@ -425,30 +422,37 @@ class _AddFriendSectionState extends State<_AddFriendSection> {
           style: AppTextStyles.welcomeSubtitle.copyWith(color: context.text),
         ),
         const SizedBox(height: 10),
-
         _InputCard(
           controller: _usernameCtrl,
           hint: 'Nhập username (VD: ironman)',
           keyboardType: TextInputType.text,
         ),
         const SizedBox(height: 12),
-
         SizedBox(
           height: 48,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: context.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
             ),
-            onPressed: () async {
+            onPressed: busy
+                ? null
+                : () async {
               final username = _usernameCtrl.text.trim();
               if (username.isEmpty) return;
 
-              await context.read<FriendsProvider>().sendRequestByUsername(username);
+              await context
+                  .read<FriendsProvider>()
+                  .sendRequestByUsername(username);
 
               if (!mounted) return;
-              if (vm.error == null) {
+
+              // ✅ đọc state mới nhất sau await
+              final latest = context.read<FriendsProvider>();
+              if (latest.error == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Đã gửi lời mời tới @$username')),
                 );
@@ -458,40 +462,43 @@ class _AddFriendSectionState extends State<_AddFriendSection> {
             child: const Text('Gửi lời mời (Username)'),
           ),
         ),
-
         const SizedBox(height: 18),
         Divider(color: context.divider.withOpacity(0.25)),
         const SizedBox(height: 18),
-
         Text(
           'Thêm bạn bằng số điện thoại',
           style: AppTextStyles.welcomeSubtitle.copyWith(color: context.text),
         ),
         const SizedBox(height: 10),
-
         _InputCard(
           controller: _phoneCtrl,
           hint: 'Nhập SĐT (VD: 0839610128)',
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 12),
-
         SizedBox(
           height: 48,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: context.primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
             ),
-            onPressed: () async {
+            onPressed: busy
+                ? null
+                : () async {
               final e164 = _normalizeToE164VN(_phoneCtrl.text);
               if (e164.isEmpty) return;
 
               await context.read<FriendsProvider>().sendRequest(e164);
 
               if (!mounted) return;
-              if (vm.error == null) {
+
+              // ✅ đọc state mới nhất sau await
+              final latest = context.read<FriendsProvider>();
+              if (latest.error == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Đã gửi lời mời tới $e164')),
                 );
@@ -571,9 +578,18 @@ class _ContactRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(color: context.text, fontWeight: FontWeight.w700)),
+                Text(
+                  name,
+                  style: TextStyle(
+                    color: context.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: context.subtext, fontSize: 12)),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: context.subtext, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -601,7 +617,10 @@ class _Avatar extends StatelessWidget {
       backgroundColor: context.primary.withOpacity(0.18),
       child: Text(
         letter,
-        style: TextStyle(color: context.primary, fontWeight: FontWeight.w800),
+        style: TextStyle(
+          color: context.primary,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -660,7 +679,11 @@ class _ActionPill extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 12),
+          style: TextStyle(
+            color: fg,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
         ),
       ),
     );
@@ -682,7 +705,11 @@ class _StatusTag extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(color: context.primary, fontSize: 12, fontWeight: FontWeight.w800),
+        style: TextStyle(
+          color: context.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -704,7 +731,10 @@ class _InlineError extends StatelessWidget {
       ),
       child: Text(
         text.replaceFirst('Exception: ', ''),
-        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: Colors.red,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
