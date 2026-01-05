@@ -9,10 +9,11 @@ import 'package:minichatappmobile/core/storage/token_storage.dart';
 import 'package:minichatappmobile/core/network/auth_interceptor.dart';
 
 import 'package:minichatappmobile/features/auth/presentation/pages/welcome_page.dart';
-import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
+// import ChatListPage nếu vẫn dùng chat list
+// import 'package:minichatappmobile/features/auth/presentation/pages/chat_list_page.dart';
 
-import 'package:minichatappmobile/features/friends/data/repositories/friends_repository.dart';
-import 'package:minichatappmobile/features/friends/presentation/providers/friends_provider.dart';
+// ✅ import trực tiếp UI contacts page mới
+import 'package:minichatappmobile/features/friends/contacts_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,14 +21,9 @@ Future<void> main() async {
   final appearance = AppAppearance();
   await appearance.load();
 
-  // ✅ tạo 1 instance TokenStorage dùng chung toàn app
   final tokenStorage = TokenStorage();
-
-  // ✅ gắn interceptor cho AppDio ngay từ đầu
-  // để mọi request đều tự attach Authorization (nếu có token)
   final dio = AppDio.instance;
 
-  // tránh add trùng interceptor khi hot restart
   dio.interceptors.removeWhere((i) => i is AuthInterceptor);
   dio.interceptors.add(AuthInterceptor(tokenStorage));
 
@@ -35,20 +31,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AppAppearance>.value(value: appearance),
-
-        // ✅ provide cùng 1 instance
         Provider<TokenStorage>.value(value: tokenStorage),
-
-        Provider<FriendsRepository>(
-          create: (_) => FriendsRepository(dio),
-        ),
-
-        ChangeNotifierProvider<FriendsProvider>(
-          create: (ctx) => FriendsProvider(
-            ctx.read<FriendsRepository>(),
-            ctx.read<TokenStorage>(),
-          )..load(), // ✅ load sớm
-        ),
       ],
       child: const MyApp(),
     ),
@@ -103,12 +86,10 @@ class _AuthGateState extends State<AuthGate> {
 
     if (token == null || token.trim().isEmpty) return false;
 
-    // ✅ KHÔNG cần set header ở đây nữa vì interceptor đã tự attach
     try {
       await AppDio.instance.get('/auth/me');
       return true;
     } catch (_) {
-      // token không hợp lệ → logout
       await storage.clear();
       return false;
     }
@@ -125,7 +106,10 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        if (snap.data == true) return const ChatListPage();
+        if (snap.data == true) {
+          // ✅ thay ChatListPage bằng ContactsPage trực tiếp
+          return const ContactsPage();
+        }
 
         return const WelcomePage();
       },

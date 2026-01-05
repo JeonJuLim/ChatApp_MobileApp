@@ -205,4 +205,45 @@ export class FriendsService {
 
     return { ok: true, requestId: fr.id };
   }
+async listRelations(userId: string) {
+  // Lấy tất cả bạn bè + yêu cầu đến / đi
+  const sent = await this.prisma.friendRequest.findMany({
+    where: { fromUserId: userId },
+  });
+
+  const received = await this.prisma.friendRequest.findMany({
+    where: { toUserId: userId },
+  });
+
+  const friends = await this.prisma.contact.findMany({
+    where: { ownerId: userId },
+    include: { friend: true },
+  });
+
+  // map sang DTO format
+  const relations = [
+    ...friends.map(f => ({
+      id: f.friend.id,
+      username: f.friend.username,
+      fullName: f.friend.fullName,
+      avatarUrl: f.friend.avatarUrl,
+      status: 'friend',
+    })),
+    ...sent.map(f => ({
+      id: f.toUserId,
+      username: '', // có thể join User để lấy username
+      fullName: '', // có thể join User để lấy fullName
+      status: 'outgoingRequest',
+    })),
+    ...received.map(f => ({
+      id: f.fromUserId,
+      username: '',
+      fullName: '',
+      status: 'incomingRequest',
+    })),
+  ];
+
+  return relations;
+}
+
 }

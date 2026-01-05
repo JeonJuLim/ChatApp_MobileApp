@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:minichatappmobile/features/friends/presentation/pages/contacts_page.dart';
+import 'package:minichatappmobile/features/friends/contacts_page.dart';
 
 // ✅ Nếu chat_list_page.dart đang gọi FriendsTab()
 class FriendsTab extends StatelessWidget {

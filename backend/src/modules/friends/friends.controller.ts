@@ -1,37 +1,61 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt.guard';
-import { FriendsService } from './friends.service';
-import { FriendRequestByUsernameDto } from './dto/request-by-username.dto';
-import { FriendRequestByPhoneDto } from './dto/request-by-phone.dto';
-import { FriendRequestActionDto } from './dto/request-action.dto';
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../database/prisma.service';
 
-@UseGuards(JwtAuthGuard)
-@Controller('friends')
-export class FriendsController {
-  constructor(private readonly friends: FriendsService) {}
+@Injectable()
+export class FriendsService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  @Get('relations')
-  getRelations(@Req() req: any) {
-    return this.friends.getRelations(req.user.sub);
-  }
+  async getRelations(userId: string) {
+    // Lấy tất cả contacts (bạn bè)
+    const contacts = await this.prisma.contact.findMany({
+      where: { ownerId: userId },
+      include: { friend: true },
+    });
 
-  @Post('request')
-  requestByPhone(@Req() req: any, @Body() dto: FriendRequestByPhoneDto) {
-    return this.friends.requestByPhone(req.user.sub, dto.phoneE164);
-  }
+    // Lấy friend requests incoming/outgoing
+    const incoming = await this.prisma.friendRequest.findMany({
+      where: { toUserId: userId, status: 'PENDING' },
+      include: { fromUser: true },
+    });
 
-  @Post('request-by-username')
-  requestByUsername(@Req() req: any, @Body() dto: FriendRequestByUsernameDto) {
-    return this.friends.requestByUsername(req.user.sub, dto.username);
-  }
+    const outgoing = await this.prisma.friendRequest.findMany({
+      where: { fromUserId: userId, status: 'PENDING' },
+      include: { toUser: true },
+    });
 
-  @Post('requests/accept')
-  accept(@Req() req: any, @Body() dto: FriendRequestActionDto) {
-    return this.friends.accept(req.user.sub, dto.requestId);
-  }
+    // Map về dạng dùng cho Flutter
+    const relations = [
+      ...contacts.map(c => ({
+        user: {
+          id: c.contactId,
+          username: c.friend.username,
+          fullName: c.friend.fullName,
+          avatarUrl: c.friend.avatarUrl,
+        },
+        status: 'friend',
+      })),
+      ...incoming.map(r => ({
+        user: {
+          id: r.fromUserId,
+          username: r.fromUser.username,
+          fullName: r.fromUser.fullName,
+          avatarUrl: r.fromUser.avatarUrl,
+        },
+        status: 'incomingRequest',
+        requestId: r.id,
+      })),
+      ...outgoing.map(r => ({
+        user: {
+          id: r.toUserId,
+          username: r.toUser.username,
+          fullName: r.toUser.fullName,
+          avatarUrl: r.toUser.avatarUrl,
+        },
+        status: 'outgoingRequest',
+        requestId: r.id,
+      })),
+    ];
 
-  @Post('requests/reject')
-  reject(@Req() req: any, @Body() dto: FriendRequestActionDto) {
-    return this.friends.reject(req.user.sub, dto.requestId);
+    return relations;
   }
 }
