@@ -1,9 +1,12 @@
 // contacts_page.dart
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:minichatappmobile/core/config/app_config.dart';
 
 import 'models.dart';
 
@@ -30,22 +33,54 @@ class _ContactsPageState extends State<ContactsPage>
   final _usernameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
 
-  late String _token;
-  late String _myUserId;
+  String _token = '';
+  String _myUserId = '';
 
-  final Dio _dio = Dio();
+  // ✅ Dio dùng baseUrl từ AppConfig
+  late final Dio _dio;
+
+  static const String _tokenKey = 'accessToken';
 
   @override
   void initState() {
     super.initState();
+
     _tab = TabController(length: 3, vsync: this);
+
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: AppConfig.apiBaseUrl, // ✅ lấy baseurl từ app_config
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      ),
+    );
+
     _loadTokenAndData();
   }
 
-  Future<void> _loadTokenAndData() async {
+  // =============================
+  // Helper: attach token nếu chưa có
+  // =============================
+  Future<bool> _ensureAuthHeader() async {
+    final current = _dio.options.headers['Authorization']?.toString();
+    if (current != null && current.startsWith('Bearer ')) return true;
+
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('accessToken') ?? '';
-    if (token.isEmpty) {
+    final token = prefs.getString(_tokenKey);
+
+    if (token == null || token.isEmpty) return false;
+
+    _dio.options.headers['Authorization'] = 'Bearer $token';
+    return true;
+  }
+
+  Future<void> _loadTokenAndData() async {
+    final ok = await _ensureAuthHeader();
+    if (!ok) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _error = 'Bạn chưa đăng nhập';
@@ -53,10 +88,13 @@ class _ContactsPageState extends State<ContactsPage>
       return;
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey) ?? '';
     _token = token;
     _myUserId = _getUserIdFromJwt(_token);
 
     if (_myUserId.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _error = 'Token không hợp lệ (không lấy được userId)';
@@ -68,24 +106,28 @@ class _ContactsPageState extends State<ContactsPage>
   }
 
   Future<void> _fetchFriends() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final res = await _dio.get(
-        'http://172.16.1.21:3001/friends/relations',
-        options: Options(headers: {'Authorization': 'Bearer $_token'}),
-      );
+      final ok = await _ensureAuthHeader();
+      if (!ok) throw Exception('Missing token');
+
+      // ✅ Không hardcode IP nữa
+      final res = await _dio.get('/friends/relations');
 
       final raw = res.data;
       List<dynamic> list = [];
+
       if (raw is List) list = raw;
       if (raw is Map) {
         list = raw['data'] ?? raw['items'] ?? raw['relations'] ?? [];
       }
 
+      if (!mounted) return;
       setState(() {
         _relations = list
             .whereType<Map>()
@@ -93,11 +135,12 @@ class _ContactsPageState extends State<ContactsPage>
             .toList();
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Lỗi load danh sách bạn bè';
       });
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -111,19 +154,25 @@ class _ContactsPageState extends State<ContactsPage>
     }
 
     try {
+      final ok = await _ensureAuthHeader();
+      if (!ok) throw Exception('Missing token');
+
       await _dio.post(
-        'http://172.16.1.21:3001/friends/request-by-username',
-        options: Options(headers: {'Authorization': 'Bearer $_token'}),
+        '/friends/request-by-username',
         data: {'username': u},
       );
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Đã gửi lời mời tới @$u')),
       );
       _usernameCtrl.clear();
       await _fetchFriends();
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Lỗi gửi lời mời')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lỗi gửi lời mời')),
+      );
     }
   }
 
@@ -137,27 +186,35 @@ class _ContactsPageState extends State<ContactsPage>
     }
 
     try {
+      final ok = await _ensureAuthHeader();
+      if (!ok) throw Exception('Missing token');
+
       await _dio.post(
-        'http://172.16.1.21:3001/friends/request',
-        options: Options(headers: {'Authorization': 'Bearer $_token'}),
+        '/friends/request',
         data: {'phoneE164': p},
       );
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Đã gửi lời mời tới $p')),
       );
       _phoneCtrl.clear();
       await _fetchFriends();
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Lỗi gửi lời mời')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lỗi gửi lời mời')),
+      );
     }
   }
 
   Future<void> _acceptRequest(String requestId) async {
     try {
+      final ok = await _ensureAuthHeader();
+      if (!ok) throw Exception('Missing token');
+
       await _dio.post(
-        'http://172.16.1.21:3001/friends/requests/accept',
-        options: Options(headers: {'Authorization': 'Bearer $_token'}),
+        '/friends/requests/accept',
         data: {'requestId': requestId},
       );
       await _fetchFriends();
@@ -166,9 +223,11 @@ class _ContactsPageState extends State<ContactsPage>
 
   Future<void> _rejectRequest(String requestId) async {
     try {
+      final ok = await _ensureAuthHeader();
+      if (!ok) throw Exception('Missing token');
+
       await _dio.post(
-        'http://172.16.1.21:3001/friends/requests/reject',
-        options: Options(headers: {'Authorization': 'Bearer $_token'}),
+        '/friends/requests/reject',
         data: {'requestId': requestId},
       );
       await _fetchFriends();
@@ -182,9 +241,10 @@ class _ContactsPageState extends State<ContactsPage>
     try {
       final parts = jwt.split('.');
       if (parts.length != 3) return '';
-      final payload = jsonDecode(
-        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-      ) as Map<String, dynamic>;
+
+      final normalized = base64Url.normalize(parts[1]);
+      final bytes = base64Url.decode(normalized);
+      final payload = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
 
       return (payload['sub'] ?? payload['userId'] ?? payload['id'] ?? '')
           .toString();
@@ -196,12 +256,13 @@ class _ContactsPageState extends State<ContactsPage>
   // ============================================================
   // ✅ Lấy/Tạo conversation 1-1 để mở chat/call/video
   // IMPORTANT: endpoint này phải tồn tại trên backend của bạn.
-  // Nếu khác tên, chỉ cần đổi URL + body + parse response.
   // ============================================================
   Future<String> _ensureDirectConversationId(String peerUserId) async {
+    final ok = await _ensureAuthHeader();
+    if (!ok) throw Exception('Missing token');
+
     final res = await _dio.post(
-      'http://172.16.1.21:3001/conversations/direct',
-      options: Options(headers: {'Authorization': 'Bearer $_token'}),
+      '/conversations/direct',
       data: {'peerUserId': peerUserId},
     );
 
@@ -296,9 +357,7 @@ class _ContactsPageState extends State<ContactsPage>
   // ============================================================
   // UI HELPERS
   // ============================================================
-  Map<String, List<FriendRelation>> _groupByFirstLetter(
-      List<FriendRelation> list,
-      ) {
+  Map<String, List<FriendRelation>> _groupByFirstLetter(List<FriendRelation> list) {
     final map = <String, List<FriendRelation>>{};
     for (final r in list) {
       final name = (r.user.fullName).trim();
@@ -338,31 +397,8 @@ class _ContactsPageState extends State<ContactsPage>
     return Scaffold(
       backgroundColor: Colors.white,
 
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 1,
-        onTap: (i) {
-          // giữ nguyên logic, bạn tự gắn điều hướng sau
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_alt_outlined),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.call_outlined),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            label: '',
-          ),
-        ],
-      ),
+      // ✅ FIX 1: KHÔNG DỰNG BOTTOM NAV Ở ĐÂY NỮA
+      // bottomNavigationBar: ... (đã xóa)
 
       body: SafeArea(
         child: _loading
@@ -384,16 +420,14 @@ class _ContactsPageState extends State<ContactsPage>
                   Expanded(
                     child: Container(
                       height: 40,
-                      padding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF2F3F5),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         children: const [
-                          Icon(Icons.search,
-                              size: 20, color: Colors.grey),
+                          Icon(Icons.search, size: 20, color: Colors.grey),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -421,8 +455,7 @@ class _ContactsPageState extends State<ContactsPage>
                 borderRadius: BorderRadius.circular(14),
                 onTap: () => _tab.animateTo(1),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF7F8FA),
                     borderRadius: BorderRadius.circular(14),
@@ -432,8 +465,7 @@ class _ContactsPageState extends State<ContactsPage>
                       const CircleAvatar(
                         radius: 18,
                         backgroundColor: Color(0xFF2F80ED),
-                        child: Icon(Icons.person,
-                            color: Colors.white, size: 20),
+                        child: Icon(Icons.person, color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -445,8 +477,7 @@ class _ContactsPageState extends State<ContactsPage>
                           ),
                         ),
                       ),
-                      const Icon(Icons.chevron_right,
-                          color: Colors.grey),
+                      const Icon(Icons.chevron_right, color: Colors.grey),
                     ],
                   ),
                 ),
@@ -460,12 +491,10 @@ class _ContactsPageState extends State<ContactsPage>
                 children: [
                   // TAB 1: Friends
                   ListView(
-                    padding:
-                    const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
                     children: [
                       if (bestFriends.isNotEmpty) ...[
-                        const _SectionHeader(
-                            title: 'Bạn thân', leading: '⭐'),
+                        const _SectionHeader(title: 'Bạn thân', leading: '⭐'),
                         const SizedBox(height: 6),
                         ...bestFriends.map(
                               (r) => _ContactRow(
@@ -499,33 +528,27 @@ class _ContactsPageState extends State<ContactsPage>
 
                   // TAB 2: Requests
                   ListView(
-                    padding:
-                    const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
                     children: [
-                      const _SectionHeader(
-                          title: 'Lời mời đến', leading: '📥'),
+                      const _SectionHeader(title: 'Lời mời đến', leading: '📥'),
                       const SizedBox(height: 6),
                       ...incoming.map(
                             (r) => _InviteRow(
                           name: r.user.fullName,
                           subtitle: r.user.username,
-                          onAccept: () =>
-                              _acceptRequest(r.requestId!),
-                          onReject: () =>
-                              _rejectRequest(r.requestId!),
+                          onAccept: () => _acceptRequest(r.requestId!),
+                          onReject: () => _rejectRequest(r.requestId!),
                         ),
                       ),
                       const SizedBox(height: 14),
                       const Divider(),
                       const SizedBox(height: 10),
-                      const _SectionHeader(
-                          title: 'Đã gửi', leading: '📤'),
+                      const _SectionHeader(title: 'Đã gửi', leading: '📤'),
                       const SizedBox(height: 6),
                       ...outgoing.map(
                             (r) => _InfoRow(
                           name: r.user.fullName,
-                          subtitle:
-                          'Đã gửi lời mời • ${r.user.username}',
+                          subtitle: 'Đã gửi lời mời • ${r.user.username}',
                         ),
                       ),
                     ],
@@ -535,8 +558,7 @@ class _ContactsPageState extends State<ContactsPage>
                   ListView(
                     padding: const EdgeInsets.all(12),
                     children: [
-                      const _SectionHeader(
-                          title: 'Thêm bạn', leading: '➕'),
+                      const _SectionHeader(title: 'Thêm bạn', leading: '➕'),
                       const SizedBox(height: 12),
                       _InputCard(
                         title: 'Theo Username',
@@ -555,9 +577,7 @@ class _ContactsPageState extends State<ContactsPage>
                               width: double.infinity,
                               height: 44,
                               child: ElevatedButton(
-                                onPressed: () =>
-                                    _sendRequestByUsername(
-                                        _usernameCtrl.text),
+                                onPressed: () => _sendRequestByUsername(_usernameCtrl.text),
                                 child: const Text('Gửi lời mời'),
                               ),
                             ),
@@ -582,8 +602,7 @@ class _ContactsPageState extends State<ContactsPage>
                               width: double.infinity,
                               height: 44,
                               child: ElevatedButton(
-                                onPressed: () => _sendRequestByPhone(
-                                    _phoneCtrl.text),
+                                onPressed: () => _sendRequestByPhone(_phoneCtrl.text),
                                 child: const Text('Gửi lời mời'),
                               ),
                             ),

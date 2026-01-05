@@ -13,33 +13,20 @@ export class FriendsService {
 
   // ==================================================
   // GET RELATIONS: friend + incomingRequest + outgoingRequest
+  // Format đúng cho Flutter:
+  // [{ status: 'friend'|'incomingRequest'|'outgoingRequest', requestId, user: {...}}]
   // ==================================================
   async getRelations(myId: string) {
     // Friends (Contact)
     const contacts = await this.prisma.contact.findMany({
       where: { ownerId: myId },
-      select: { contactId: true },
+      select: { friend: { select: this._userSelect() } },
     });
 
-    const contactIds = contacts.map(c => c.contactId);
-
-    const friendsUsers = contactIds.length
-      ? await this.prisma.user.findMany({
-          where: { id: { in: contactIds } },
-          select: {
-            id: true,
-            username: true,
-            fullName: true,
-            phoneE164: true,
-            avatarUrl: true,
-          },
-        })
-      : [];
-
-    const friends = friendsUsers.map(u => ({
+    const friendsMapped = contacts.map((c) => ({
       status: 'friend',
       requestId: null,
-      user: u,
+      user: c.friend,
     }));
 
     // Incoming requests
@@ -47,20 +34,12 @@ export class FriendsService {
       where: { toUserId: myId, status: FriendRequestStatus.PENDING },
       select: {
         id: true,
-        fromUser: {
-          select: {
-            id: true,
-            username: true,
-            fullName: true,
-            phoneE164: true,
-            avatarUrl: true,
-          },
-        },
+        fromUser: { select: this._userSelect() },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    const incomingMapped = incoming.map(r => ({
+    const incomingMapped = incoming.map((r) => ({
       status: 'incomingRequest',
       requestId: r.id,
       user: r.fromUser,
@@ -71,26 +50,31 @@ export class FriendsService {
       where: { fromUserId: myId, status: FriendRequestStatus.PENDING },
       select: {
         id: true,
-        toUser: {
-          select: {
-            id: true,
-            username: true,
-            fullName: true,
-            phoneE164: true,
-            avatarUrl: true,
-          },
-        },
+        toUser: { select: this._userSelect() },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    const outgoingMapped = outgoing.map(r => ({
+    const outgoingMapped = outgoing.map((r) => ({
       status: 'outgoingRequest',
       requestId: r.id,
       user: r.toUser,
     }));
 
-    return [...friends, ...incomingMapped, ...outgoingMapped];
+    return [...friendsMapped, ...incomingMapped, ...outgoingMapped];
+  }
+
+  // ==================================================
+  // GET FRIENDS ONLY (optional)
+  // Trả thẳng danh sách user friend (không bọc relation/status)
+  // ==================================================
+  async listFriends(myId: string) {
+    const contacts = await this.prisma.contact.findMany({
+      where: { ownerId: myId },
+      select: { friend: { select: this._userSelect() } },
+    });
+
+    return contacts.map((c) => c.friend);
   }
 
   // ==================================================
@@ -100,20 +84,26 @@ export class FriendsService {
     const u = (username ?? '').trim();
     if (!u) throw new BadRequestException('Username không hợp lệ');
 
-    const to = await this.prisma.user.findUnique({ where: { username: u } });
+    const to = await this.prisma.user.findUnique({
+      where: { username: u },
+      select: { id: true },
+    });
     if (!to) throw new NotFoundException('Không tìm thấy user theo username');
 
     return this._createFriendRequest(myId, to.id);
   }
 
   // ==================================================
-  // SEND REQUEST BY PHONE
+  // SEND REQUEST BY PHONE (E.164)
   // ==================================================
   async requestByPhone(myId: string, phoneE164: string) {
     const p = (phoneE164 ?? '').trim();
     if (!p) throw new BadRequestException('Số điện thoại không hợp lệ');
 
-    const to = await this.prisma.user.findUnique({ where: { phoneE164: p } });
+    const to = await this.prisma.user.findUnique({
+      where: { phoneE164: p },
+      select: { id: true },
+    });
     if (!to) throw new NotFoundException('Không tìm thấy user theo số điện thoại');
 
     return this._createFriendRequest(myId, to.id);
@@ -125,6 +115,7 @@ export class FriendsService {
   async accept(myId: string, requestId: string) {
     const req = await this.prisma.friendRequest.findUnique({
       where: { id: requestId },
+      select: { id: true, fromUserId: true, toUserId: true, status: true },
     });
 
     if (!req) throw new NotFoundException('Lời mời không tồn tại');
@@ -156,6 +147,7 @@ export class FriendsService {
   async reject(myId: string, requestId: string) {
     const req = await this.prisma.friendRequest.findUnique({
       where: { id: requestId },
+      select: { id: true, toUserId: true, status: true },
     });
 
     if (!req) throw new NotFoundException('Lời mời không tồn tại');
@@ -176,6 +168,7 @@ export class FriendsService {
   // INTERNAL: create friend request (PENDING)
   // ==================================================
   private async _createFriendRequest(myId: string, otherId: string) {
+    if (!myId || !otherId) throw new BadRequestException('Invalid userId');
     if (myId === otherId) {
       throw new BadRequestException('Không thể kết bạn với chính mình');
     }
@@ -199,51 +192,24 @@ export class FriendsService {
     if (existedReq) throw new ConflictException('Đã có lời mời đang chờ');
 
     const fr = await this.prisma.friendRequest.create({
-      data: { fromUserId: myId, toUserId: otherId },
+      data: {
+        fromUserId: myId,
+        toUserId: otherId,
+        status: FriendRequestStatus.PENDING,
+      },
       select: { id: true },
     });
 
     return { ok: true, requestId: fr.id };
   }
-async listRelations(userId: string) {
-  // Lấy tất cả bạn bè + yêu cầu đến / đi
-  const sent = await this.prisma.friendRequest.findMany({
-    where: { fromUserId: userId },
-  });
 
-  const received = await this.prisma.friendRequest.findMany({
-    where: { toUserId: userId },
-  });
-
-  const friends = await this.prisma.contact.findMany({
-    where: { ownerId: userId },
-    include: { friend: true },
-  });
-
-  // map sang DTO format
-  const relations = [
-    ...friends.map(f => ({
-      id: f.friend.id,
-      username: f.friend.username,
-      fullName: f.friend.fullName,
-      avatarUrl: f.friend.avatarUrl,
-      status: 'friend',
-    })),
-    ...sent.map(f => ({
-      id: f.toUserId,
-      username: '', // có thể join User để lấy username
-      fullName: '', // có thể join User để lấy fullName
-      status: 'outgoingRequest',
-    })),
-    ...received.map(f => ({
-      id: f.fromUserId,
-      username: '',
-      fullName: '',
-      status: 'incomingRequest',
-    })),
-  ];
-
-  return relations;
-}
-
+  private _userSelect() {
+    return {
+      id: true,
+      username: true,
+      fullName: true,
+      phoneE164: true,
+      avatarUrl: true,
+    } as const;
+  }
 }

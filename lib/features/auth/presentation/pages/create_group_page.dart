@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:minichatappmobile/core/network/app_dio.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
-import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_page.dart';
 
 class CreateGroupPage extends StatefulWidget {
   final String myUserId;
@@ -19,7 +18,11 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   final _nameCtrl = TextEditingController();
   bool _loading = false;
 
-  List<dynamic> _friendRelations = [];
+  /// Với endpoint GET /friends, backend trả List<UserFriend>
+  /// [
+  ///   { id, username, fullName, avatarUrl }
+  /// ]
+  List<dynamic> _friends = [];
   final Set<String> _selectedFriendIds = {};
 
   static const String _tokenKey = 'accessToken';
@@ -55,54 +58,46 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   }
 
   // =============================
-  // Fetch bạn bè (status=friend)
+  // Fetch bạn bè (CHỈ bạn bè)
+  // Backend: GET /friends
   // =============================
   Future<void> _fetchFriends() async {
     try {
       final ok = await _ensureAuthHeader();
       if (!ok) {
-        if (mounted) setState(() => _friendRelations = []);
+        if (mounted) setState(() => _friends = []);
         _toast('Chưa có token đăng nhập');
         return;
       }
 
-      final res = await _dio.get('/friends/relations');
+      // ✅ CHỈ LẤY BẠN BÈ
+      final res = await _dio.get('/friends');
       final data = res.data;
 
       if (data is! List) {
-        if (mounted) setState(() => _friendRelations = []);
+        if (mounted) setState(() => _friends = []);
         _toast('Response friends không đúng format');
         return;
       }
 
-      final onlyFriends = data.where((e) {
-        if (e is! Map) return false;
-        return e['status']?.toString() == 'friend';
-      }).toList();
-
-      if (mounted) setState(() => _friendRelations = onlyFriends);
+      if (mounted) setState(() => _friends = data);
     } on DioException catch (e) {
+      // ignore: avoid_print
       print('FETCH FRIENDS ERR -> ${e.response?.statusCode} ${e.response?.data}');
-      if (mounted) setState(() => _friendRelations = []);
+      if (mounted) setState(() => _friends = []);
       _toast('Không tải được bạn bè (${e.response?.statusCode ?? 'ERR'})');
     } catch (e) {
+      // ignore: avoid_print
       print('FETCH FRIENDS ERR -> $e');
-      if (mounted) setState(() => _friendRelations = []);
+      if (mounted) setState(() => _friends = []);
       _toast('Không tải được bạn bè');
     }
   }
 
   // =============================
-  // Helper lấy user object từ relation
-  // =============================
-  Map<String, dynamic> _extractUser(dynamic rel) {
-    if (rel is! Map) return {};
-    final u = rel['user'] ?? rel['friend'] ?? rel['target'] ?? rel['contact'] ?? {};
-    return (u is Map) ? Map<String, dynamic>.from(u) : {};
-  }
-
-  // =============================
   // Tạo group
+  // Backend: POST /conversations/groups
+  // Khi thành công: pop(true) để ChatList reload
   // =============================
   Future<void> _createGroup() async {
     final name = _nameCtrl.text.trim();
@@ -124,7 +119,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       }
 
       final res = await _dio.post(
-        '/conversations/group',
+        '/conversations/groups',
         data: {
           'name': name,
           'memberIds': _selectedFriendIds.toList(),
@@ -140,20 +135,18 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
       }
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => ChatDetailPage(
-            title: name,
-            conversationId: convId,
-            myUserId: widget.myUserId,
-            isGroup: true,
-          ),
-        ),
-      );
+
+      // ✅ QUAN TRỌNG: báo về ChatList để reload và show group mới
+      Navigator.of(context).pop(true);
+
+      // Nếu bạn muốn sau khi reload ChatList thì auto mở ChatDetail,
+      // ta sẽ làm ở ChatList: nhận convId rồi push tiếp (cần sửa thêm ChatList).
     } on DioException catch (e) {
+      // ignore: avoid_print
       print('CREATE GROUP ERR -> ${e.response?.statusCode} ${e.response?.data}');
       _toast('Tạo nhóm thất bại (${e.response?.statusCode ?? 'ERR'})');
     } catch (e) {
+      // ignore: avoid_print
       print('CREATE GROUP ERR -> $e');
       _toast('Lỗi tạo nhóm');
     } finally {
@@ -235,7 +228,7 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: _friendRelations.isEmpty
+              child: _friends.isEmpty
                   ? Center(
                 child: Text(
                   'Bạn chưa có bạn bè để thêm',
@@ -245,16 +238,21 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                   : ListView.builder(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 6),
-                itemCount: _friendRelations.length,
+                itemCount: _friends.length,
                 itemBuilder: (_, i) {
-                  final rel = _friendRelations[i];
-                  final user = _extractUser(rel);
+                  final raw = _friends[i];
+
+                  // ✅ Backend trả trực tiếp user object
+                  final user = (raw is Map)
+                      ? Map<String, dynamic>.from(raw)
+                      : <String, dynamic>{};
 
                   final id = (user['id'] ?? '').toString();
+                  if (id.isEmpty) return const SizedBox.shrink();
+
                   final displayName =
                   (user['fullName'] ?? user['username'] ?? 'User')
                       .toString();
-                  if (id.isEmpty) return const SizedBox.shrink();
 
                   final selected = _selectedFriendIds.contains(id);
 
