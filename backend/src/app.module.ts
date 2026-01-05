@@ -13,7 +13,7 @@ import { MessagesController } from './messages.controller';
 import { ConversationsController } from './conversations.controller';
 import { FriendsModule } from './modules/friends/friends.module';
 import { HealthController } from './health.controller';
-import { ConversationsModule } from './conversations/conversations.module';
+import { ConversationsModule } from './modules/conversations/conversations.module';
 @Module({
   imports: [
     PrismaModule,

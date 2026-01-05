@@ -1,7 +1,7 @@
 import 'dart:io';
 
 class AppConfig {
-  static const String _lanIp = '172.16.1.21';
+  static const String _lanIp = '192.168.88.237';
   static const int _port = 3001;
 
   static String get apiBaseUrl {

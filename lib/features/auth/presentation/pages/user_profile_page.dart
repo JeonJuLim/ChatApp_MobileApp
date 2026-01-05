@@ -30,7 +30,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
       // emulator:
 
-      baseUrl: 'http://172.16.1.21:3001',
+      baseUrl: 'http://192.168.88.237:3001',
       // máy thật: đổi sang http://172.16.1.105:3001
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
