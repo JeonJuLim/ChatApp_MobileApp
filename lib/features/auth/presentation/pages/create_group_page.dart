@@ -18,15 +18,11 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
   final _nameCtrl = TextEditingController();
   bool _loading = false;
 
-  /// Với endpoint GET /friends, backend trả List<UserFriend>
-  /// [
-  ///   { id, username, fullName, avatarUrl }
-  /// ]
+  /// Backend: GET /friends => List<{ id, username, fullName, avatarUrl }>
   List<dynamic> _friends = [];
   final Set<String> _selectedFriendIds = {};
 
   static const String _tokenKey = 'accessToken';
-
   Dio get _dio => AppDio.instance;
 
   @override
@@ -41,26 +37,18 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     super.dispose();
   }
 
-  // =============================
-  // Helper: attach token nếu chưa có
-  // =============================
   Future<bool> _ensureAuthHeader() async {
     final current = _dio.options.headers['Authorization']?.toString();
     if (current != null && current.startsWith('Bearer ')) return true;
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
-
     if (token == null || token.isEmpty) return false;
 
     _dio.options.headers['Authorization'] = 'Bearer $token';
     return true;
   }
 
-  // =============================
-  // Fetch bạn bè (CHỈ bạn bè)
-  // Backend: GET /friends
-  // =============================
   Future<void> _fetchFriends() async {
     try {
       final ok = await _ensureAuthHeader();
@@ -70,7 +58,6 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
         return;
       }
 
-      // ✅ CHỈ LẤY BẠN BÈ
       final res = await _dio.get('/friends');
       final data = res.data;
 
@@ -94,11 +81,6 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     }
   }
 
-  // =============================
-  // Tạo group
-  // Backend: POST /conversations/groups
-  // Khi thành công: pop(true) để ChatList reload
-  // =============================
   Future<void> _createGroup() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
@@ -136,11 +118,12 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
 
       if (!mounted) return;
 
-      // ✅ QUAN TRỌNG: báo về ChatList để reload và show group mới
-      Navigator.of(context).pop(true);
-
-      // Nếu bạn muốn sau khi reload ChatList thì auto mở ChatDetail,
-      // ta sẽ làm ở ChatList: nhận convId rồi push tiếp (cần sửa thêm ChatList).
+      // ✅ Trả về convId để ChatList mở thẳng ChatDetail
+      Navigator.of(context).pop({
+        'conversationId': convId,
+        'title': name,
+        'isGroup': true,
+      });
     } on DioException catch (e) {
       // ignore: avoid_print
       print('CREATE GROUP ERR -> ${e.response?.statusCode} ${e.response?.data}');
@@ -154,16 +137,10 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
     }
   }
 
-  // =============================
-  // Toast helper
-  // =============================
   void _toast(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // =============================
-  // UI
-  // =============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -242,7 +219,6 @@ class _CreateGroupPageState extends State<CreateGroupPage> {
                 itemBuilder: (_, i) {
                   final raw = _friends[i];
 
-                  // ✅ Backend trả trực tiếp user object
                   final user = (raw is Map)
                       ? Map<String, dynamic>.from(raw)
                       : <String, dynamic>{};

@@ -11,9 +11,8 @@ import 'package:minichatappmobile/features/auth/presentation/pages/call/video_ca
 
 import 'package:http/http.dart' as http;
 
-
 class ChatDetailPage extends StatefulWidget {
-  final String title;
+  final String title; // fallback
   final String conversationId;
   final String myUserId;
   final bool isGroup;
@@ -61,19 +60,24 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
   bool _otherTyping = false;
   Timer? _typingDebounce;
-  String _getUserName(String userId) {
-    return 'User ${userId.substring(0, 4)}'; // TODO: map thật
-  }
 
-  String _getAvatarUrl(String userId) {
-    return 'https://i.pravatar.cc/150?u=$userId';
-  }
+  // ====== FIX: title + peer user ======
+  String _appBarTitle = '';
+  bool _loadingTitle = true;
+
+  // Map userId -> user info (fullName/username/avatarUrl)
+  final Map<String, Map<String, dynamic>> _userCache = {};
+
   /* =========================
      INIT
   ========================= */
   @override
   void initState() {
     super.initState();
+
+    _appBarTitle = widget.title; // fallback ngay
+    _loadConversationTitle(); // ✅ FIX: lấy title đúng theo conversation + members
+
     _loadHistory();
 
     debugPrint(
@@ -92,6 +96,90 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
     _initSocketListeners();
   }
+
+  // =============================
+  // FIX: GET /conversations/:id => set AppBar title đúng
+  // - group: name
+  // - direct: tên người còn lại (member != myUserId)
+  // =============================
+  Future<void> _loadConversationTitle() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${AppConfig.apiBaseUrl}/conversations/${widget.conversationId}'),
+      );
+
+      if (res.statusCode != 200) {
+        throw Exception('Load conversation failed (${res.statusCode})');
+      }
+
+      final raw = jsonDecode(res.body);
+
+      Map<String, dynamic>? conv;
+      if (raw is Map<String, dynamic>) {
+        conv = raw;
+      } else if (raw is Map) {
+        conv = Map<String, dynamic>.from(raw);
+      }
+
+      if (conv == null) {
+        if (!mounted) return;
+        setState(() => _loadingTitle = false);
+        return;
+      }
+
+      final type = (conv['type'] ?? '').toString(); // "direct" | "group"
+      final name = (conv['name'] ?? '').toString();
+
+      // cache members -> userCache
+      final members = conv['members'];
+      if (members is List) {
+        for (final m in members) {
+          if (m is! Map) continue;
+          final u = m['user'];
+          if (u is! Map) continue;
+
+          final uid = (u['id'] ?? '').toString();
+          if (uid.isEmpty) continue;
+
+          _userCache[uid] = Map<String, dynamic>.from(u);
+        }
+      }
+
+      String nextTitle = widget.title;
+
+      if (type == 'group' || widget.isGroup == true) {
+        if (name.trim().isNotEmpty) nextTitle = name.trim();
+      } else {
+        // direct: tìm user khác mình
+        Map<String, dynamic>? peer;
+        for (final entry in _userCache.entries) {
+          if (entry.key != widget.myUserId) {
+            peer = entry.value;
+            break;
+          }
+        }
+
+        if (peer != null) {
+          final fullName = (peer['fullName'] ?? '').toString().trim();
+          final username = (peer['username'] ?? '').toString().trim();
+          nextTitle = fullName.isNotEmpty
+              ? fullName
+              : (username.isNotEmpty ? username : widget.title);
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _appBarTitle = nextTitle;
+        _loadingTitle = false;
+      });
+    } catch (e) {
+      debugPrint('❌ Load conversation title error: $e');
+      if (!mounted) return;
+      setState(() => _loadingTitle = false);
+    }
+  }
+
   Future<void> _loadHistory() async {
     try {
       final res = await http.get(
@@ -127,7 +215,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       debugPrint('❌ Load history error: $e');
     }
   }
-
 
   void _initSocketListeners() {
     /* ---------- NEW MESSAGE ---------- */
@@ -253,6 +340,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     return '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   }
 
+  // =============================
+  // FIX: map thật username/fullName từ _userCache (fallback)
+  // =============================
+  String _getUserName(String userId) {
+    final u = _userCache[userId];
+    if (u != null) {
+      final fullName = (u['fullName'] ?? '').toString().trim();
+      final username = (u['username'] ?? '').toString().trim();
+      if (fullName.isNotEmpty) return fullName;
+      if (username.isNotEmpty) return username;
+    }
+    return 'User ${userId.length >= 4 ? userId.substring(0, 4) : userId}';
+  }
+
+  String _getAvatarUrl(String userId) {
+    final u = _userCache[userId];
+    final url = (u?['avatarUrl'] ?? '').toString().trim();
+    if (url.isNotEmpty) return url;
+    return 'https://i.pravatar.cc/150?u=$userId';
+  }
+
   /* =========================
      UI
   ========================= */
@@ -264,14 +372,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
-        title: Text(
-          widget.title,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _appBarTitle.isEmpty ? 'Chat' : _appBarTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (_loadingTitle)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
         ),
-        // ✅ THÊM MỚI: 2 nút call
         actions: [
           IconButton(
             tooltip: 'Call voice',
@@ -280,7 +401,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => VoiceCallPage(
-                    title: widget.title,
+                    title: _appBarTitle.isEmpty ? widget.title : _appBarTitle,
                     conversationId: widget.conversationId,
                     myUserId: widget.myUserId,
                     isGroup: widget.isGroup,
@@ -296,7 +417,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => VideoCallPage(
-                    title: widget.title,
+                    title: _appBarTitle.isEmpty ? widget.title : _appBarTitle,
                     conversationId: widget.conversationId,
                     myUserId: widget.myUserId,
                     isGroup: widget.isGroup,
@@ -323,14 +444,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                 final prev = i > 0 ? _messages[i - 1] : null;
 
                 final showSenderInfo =
-                    isGroup &&
-                        !isMe &&
-                        (prev == null || prev.senderId != m.senderId);
+                    isGroup && !isMe && (prev == null || prev.senderId != m.senderId);
 
-
-                final isLastMyMessage =
-                    isMe &&
-                        i == _messages.lastIndexWhere(
+                final isLastMyMessage = isMe &&
+                    i ==
+                        _messages.lastIndexWhere(
                               (msg) => msg.senderId == widget.myUserId,
                         );
 
@@ -348,10 +466,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                           child: showSenderInfo
                               ? CircleAvatar(
                             radius: 16,
-                            backgroundImage:
-                            NetworkImage(_getAvatarUrl(m.senderId)),
+                            backgroundImage: NetworkImage(_getAvatarUrl(m.senderId)),
                           )
-                              : const SizedBox(width: 32), // giữ alignment
+                              : const SizedBox(width: 32),
                         ),
 
                       // ===== MESSAGE BUBBLE =====
@@ -393,8 +510,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                     style: AppTextStyles.legalText.copyWith(
                                       fontSize: 16,
                                       height: 1.35,
-                                      color:
-                                      isMe ? Colors.white : AppColors.textPrimary,
+                                      color: isMe ? Colors.white : AppColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -405,9 +521,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                         _formatTime(m.createdAt),
                                         style: AppTextStyles.legalText.copyWith(
                                           fontSize: 10,
-                                          color: isMe
-                                              ? Colors.white70
-                                              : AppColors.textSecondary,
+                                          color:
+                                          isMe ? Colors.white70 : AppColors.textSecondary,
                                         ),
                                       ),
                                       if (isLastMyMessage) ...[
@@ -437,7 +552,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                     ],
                   ),
                 );
-
               },
             ),
           ),

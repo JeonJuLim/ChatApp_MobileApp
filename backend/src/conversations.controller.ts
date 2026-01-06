@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { PrismaService } from './database/prisma.service';
 
-@Controller('conversations')
+@Controller('legacy/conversations')
 export class ConversationsController {
   constructor(private prisma: PrismaService) {}
 

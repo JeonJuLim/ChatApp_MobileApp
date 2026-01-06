@@ -284,14 +284,17 @@ class _ContactsPageState extends State<ContactsPage>
 
   Future<void> _openChat(FriendRelation r) async {
     try {
-      final conversationId = await _ensureDirectConversationId(r.user.id);
+      final peerId = r.user.id;
+      if (peerId.isEmpty) throw Exception('peerUserId rỗng');
+
+      final conversationId = await _ensureDirectConversationId(peerId);
 
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => ChatDetailPage(
-            title: r.user.fullName,
+            title: (r.user.fullName.isNotEmpty ? r.user.fullName : r.user.username),
             conversationId: conversationId,
             myUserId: _myUserId,
             isGroup: false,
@@ -305,6 +308,7 @@ class _ContactsPageState extends State<ContactsPage>
       );
     }
   }
+
 
   Future<void> _openVoiceCall(FriendRelation r) async {
     try {

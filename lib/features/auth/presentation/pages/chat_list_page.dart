@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:dio/dio.dart';
 import 'package:minichatappmobile/core/config/app_config.dart';
+import 'package:minichatappmobile/core/config/app_dio.dart';
 import 'package:minichatappmobile/core/theme/app_colors.dart';
 import 'package:minichatappmobile/core/theme/app_text_styles.dart';
 import 'package:minichatappmobile/features/auth/presentation/pages/chat_detail_page.dart';
@@ -15,69 +16,105 @@ import 'package:minichatappmobile/features/auth/presentation/pages/create_group_
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
 
-
   @override
   State<ChatListPage> createState() => _ChatListPageState();
 }
 
 class _ChatListPageState extends State<ChatListPage> {
+  Dio get _dio => AppDio.instance;
+
   final TextEditingController _searchController = TextEditingController();
   int _currentTabIndex = 0;
+
   String? _myUserId;
   Future<List<dynamic>>? _conversationFuture;
+
+  static const String _tokenKey = 'accessToken';
 
   @override
   void initState() {
     super.initState();
-    _loadUserId();
+    _bootstrap();
   }
-  Future<void> _loadUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getString('userId');
 
-    debugPrint('👤 Logged userId = $uid');
+  // =============================
+  // Ensure Authorization header
+  // =============================
+  Future<bool> _ensureAuthHeader() async {
+    final current = _dio.options.headers['Authorization']?.toString();
+    if (current != null && current.startsWith('Bearer ')) return true;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey);
+
+    if (token == null || token.isEmpty) return false;
+
+    _dio.options.headers['Authorization'] = 'Bearer $token';
+    return true;
+  }
+
+  Future<void> _bootstrap() async {
+    final ok = await _ensureAuthHeader();
+    if (!ok) {
+      if (!mounted) return;
+      setState(() {
+        _myUserId = null;
+        _conversationFuture = Future.value([]);
+      });
+      return;
+    }
+
+    await _fetchMe();
 
     if (!mounted) return;
-
     setState(() {
-      _myUserId = uid;
-      if (uid != null) {
-        _conversationFuture = fetchConversations();
-      }
+      _conversationFuture = fetchConversations();
     });
   }
 
-
   // =========================
-  // REST: FETCH CONVERSATIONS
+  // GET /users/me -> lấy userId chuẩn
   // =========================
-  Future<List<dynamic>> fetchConversations() async {
-    if (_myUserId == null) return [];
+  Future<void> _fetchMe() async {
+    try {
+      final res = await _dio.get('/users/me');
+      final data = res.data;
 
-    final res = await http.get(
-      Uri.parse(
-        '${AppConfig.apiBaseUrl}/conversations?userId=$_myUserId',
-      ),
-    );
+      final id = (data is Map) ? data['id']?.toString() : null;
 
-    debugPrint('STATUS: ${res.statusCode}');
-    debugPrint('BODY: ${res.body}');
-
-    if (res.statusCode != 200) {
-      throw Exception('API error');
+      if (!mounted) return;
+      setState(() => _myUserId = (id != null && id.isNotEmpty) ? id : null);
+    } on DioException catch (e) {
+      // ignore: avoid_print
+      print('FETCH ME ERR -> ${e.response?.statusCode} ${e.response?.data}');
+      if (!mounted) return;
+      setState(() => _myUserId = null);
+    } catch (e) {
+      // ignore: avoid_print
+      print('FETCH ME ERR -> $e');
+      if (!mounted) return;
+      setState(() => _myUserId = null);
     }
-
-    final data = jsonDecode(res.body);
-    if (data is! List) {
-      throw Exception('Invalid response format');
-    }
-
-    return data;
   }
 
+  // =========================
+  // FETCH CONVERSATIONS (đúng chuẩn: dựa token, không query userId)
+  // =========================
+  Future<List<dynamic>> fetchConversations() async {
+    final ok = await _ensureAuthHeader();
+    if (!ok) return [];
 
+    final res = await _dio.get('/conversations');
+    final raw = res.data;
 
-
+    // Support: backend trả List hoặc wrapper {data/items/conversations: [...]}
+    if (raw is List) return raw;
+    if (raw is Map) {
+      final list = raw['data'] ?? raw['items'] ?? raw['conversations'];
+      if (list is List) return list;
+    }
+    return [];
+  }
 
   @override
   void dispose() {
@@ -132,18 +169,31 @@ class _ChatListPageState extends State<ChatListPage> {
 
                   InkWell(
                     onTap: () async {
-                      final created = await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => CreateGroupPage(myUserId: _myUserId!),
-                        ),
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => CreateGroupPage(myUserId: _myUserId!)),
                       );
+                      if (result is Map) {
+                        final convId = (result['conversationId'] ?? '').toString();
+                        final title = (result['title'] ?? 'Nhóm chat').toString();
+                        final isGroup = result['isGroup'] == true;
 
-                      // created trả về conversation mới, refresh list
-                      if (created == true && mounted) {
-                        setState(() {
-                          _conversationFuture = fetchConversations();
-                        });
+                        // reload list trước (optional)
+                        setState(() => _conversationFuture = fetchConversations());
+
+                        if (!mounted || convId.isEmpty) return;
+
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ChatDetailPage(
+                              title: title,
+                              conversationId: convId,
+                              myUserId: _myUserId!,
+                              isGroup: isGroup,
+                            ),
+                          ),
+                        );
                       }
+
                     },
                     borderRadius: BorderRadius.circular(999),
                     child: CircleAvatar(
@@ -209,36 +259,45 @@ class _ChatListPageState extends State<ChatListPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 4),
                     itemCount: conversations.length,
-                    itemBuilder: (_, index) {
-                      final c = conversations[index];
+                      itemBuilder: (_, index) {
+                        final raw = conversations[index];
+                        if (raw is! Map) return const SizedBox.shrink();
 
-                      final String id = c['id'];
-                      final String title = c['title'] ?? 'Chat';
-                      final String lastMessage =
-                          c['lastMessage'] ?? '';
-                      final bool isGroup = c['type'] == 'group';
-                      final bool hasUnread =
-                          (c['unreadCount'] ?? 0) > 0;
+                        final c = Map<String, dynamic>.from(raw);
 
-                      return _ConversationTile(
-                        title: title,
-                        lastMessage: lastMessage,
-                        isGroup: isGroup,
-                        hasUnread: hasUnread,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ChatDetailPage(
-                                title: title,
-                                conversationId: id,
-                                myUserId: _myUserId!,
-                                isGroup: isGroup,
+                        final String id = (c['id'] ?? '').toString();
+                        if (id.isEmpty) return const SizedBox.shrink();
+
+                        final String type = (c['type'] ?? '').toString(); // "direct" | "group"
+                        final bool isGroup = type == 'group';
+
+                        // ✅ title backend đã tính sẵn (direct: tên user còn lại, group: name)
+                        final String title = (c['title'] ?? (isGroup ? 'Nhóm chat' : 'Chat')).toString();
+
+                        final String lastMessage = (c['lastMessage'] ?? '').toString();
+                        final int unread = (c['unreadCount'] is int) ? c['unreadCount'] as int : 0;
+                        final bool hasUnread = unread > 0;
+
+                        return _ConversationTile(
+                          title: title,
+                          lastMessage: lastMessage,
+                          isGroup: isGroup,
+                          hasUnread: hasUnread,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ChatDetailPage(
+                                  // ✅ AppBar sẽ dùng title này
+                                  title: title,
+                                  conversationId: id,
+                                  myUserId: _myUserId!,
+                                  isGroup: isGroup,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      );
-                    },
+                            );
+                          },
+                        );
+                      },
                   );
                 },
               ),
@@ -316,9 +375,19 @@ class _ConversationTile extends StatelessWidget {
   });
 
   String get _initials {
-    final parts = title.split(' ');
-    if (parts.length == 1) return parts.first[0];
-    return (parts.first[0] + parts.last[0]).toUpperCase();
+    final t = title.trim();
+    if (t.isEmpty) return 'C';
+
+    final parts = t.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    if (parts.isEmpty) return 'C';
+
+    final first = parts.first;
+    final last = parts.length == 1 ? parts.first : parts.last;
+
+    final a = first.isNotEmpty ? first[0] : 'C';
+    final b = last.isNotEmpty ? last[0] : '';
+
+    return (a + b).toUpperCase();
   }
 
   @override
@@ -329,8 +398,7 @@ class _ConversationTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Container(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -339,8 +407,7 @@ class _ConversationTile extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor:
-                isGroup ? AppColors.secondary : AppColors.primary,
+                backgroundColor: isGroup ? AppColors.secondary : AppColors.primary,
                 child: isGroup
                     ? const Icon(Icons.group, color: Colors.white)
                     : Text(
@@ -357,11 +424,13 @@ class _ConversationTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      title.trim().isEmpty ? (isGroup ? 'Nhóm chat' : 'Chat') : title,
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
